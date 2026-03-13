@@ -1,0 +1,7 @@
+bounded_context: "platform"
+service_id: "svc-evt-streaming"
+application_id: "app.evt.streaming"
+data_owner_pattern: "db_evt_streaming_prod"
+event_namespace: "evt.evt.platform"
+owning_squad: "Event Platform Squad"
+wave: "0"
