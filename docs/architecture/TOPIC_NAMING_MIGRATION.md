@@ -7,14 +7,12 @@ Standard: `NAMING_CONVENTION_DDD_EDA_BUSINESS_CONTEXT.md` (enterprise-architectu
 
 | Element | Format |
 |---|---|
-| Event topic | `evt.<ctx>.<aggregate>.v<major>` (one per aggregate, all its events, keyed by `aggregateId`) |
+| Event topic | `evt.<ctx>.<aggregate>.<event>.v<major>` |
 | Dead-letter topic | `evt.<ctx>.<aggregate>.dlq.v<major>` (one per aggregate namespace) |
 | Event type | `<Context>.<Aggregate>.<PastTenseEvent>.v<major>` |
 | Consumer group | `cg.<service-id>.<purpose>.v<major>` |
 
-Consumers tell events apart by `eventType` (envelope field and record header), not by topic. One topic per aggregate
-keeps every event of one aggregate in one partition, so consumers see a loan's or payment's lifecycle in order. The
-owner chose this layout over one topic per event on 2026-10-08 (ADR-019).
+Multi-word event names use kebab-case in topics (`payment-made`) and PascalCase in the event type (`PaymentMade`).
 
 `scripts/kafka/create-topics.sh` creates the standard topics below by default. The legacy dotted topics are created
 only with `CREATE_LEGACY_TOPICS=true`.
@@ -25,31 +23,31 @@ Only events that exist in service code are listed. No service README declares `p
 
 | Service | Namespace | Domain event class | Standard topic | Event type | Published today? |
 |---|---|---|---|---|---|
-| svc-ln-loan-lifecycle | `evt.ln.loan` | `LoanCreatedEvent` | `evt.ln.loan.v1` | `Lending.Loan.Created.v1` | No: raised on aggregate, no publisher adapter |
-| svc-ln-loan-lifecycle | `evt.ln.loan` | `LoanApprovedEvent` | `evt.ln.loan.v1` | `Lending.Loan.Approved.v1` | No |
-| svc-ln-loan-lifecycle | `evt.ln.loan` | `LoanRejectedEvent` | `evt.ln.loan.v1` | `Lending.Loan.Rejected.v1` | No |
-| svc-ln-loan-lifecycle | `evt.ln.loan` | `LoanDisbursedEvent` | `evt.ln.loan.v1` | `Lending.Loan.Disbursed.v1` | No |
-| svc-ln-loan-lifecycle | `evt.ln.loan` | `LoanCancelledEvent` | `evt.ln.loan.v1` | `Lending.Loan.Cancelled.v1` | No |
-| svc-ln-loan-lifecycle | `evt.ln.loan` | `LoanPaymentMadeEvent` | `evt.ln.loan.v1` | `Lending.Loan.PaymentMade.v1` | No |
-| svc-ln-loan-lifecycle | `evt.ln.loan` | `LoanFullyPaidEvent` | `evt.ln.loan.v1` | `Lending.Loan.FullyPaid.v1` | No |
-| svc-pay-initiation-settlement | `evt.pay.payment` | `PaymentCreatedEvent` | `evt.pay.payment.v1` | `Payments.Payment.Created.v1` | No: raised on aggregate, no publisher adapter |
-| svc-pay-initiation-settlement | `evt.pay.payment` | `PaymentProcessingEvent` | `evt.pay.payment.v1` | `Payments.Payment.ProcessingStarted.v1` | No |
-| svc-pay-initiation-settlement | `evt.pay.payment` | `PaymentCompletedEvent` | `evt.pay.payment.v1` | `Payments.Payment.Completed.v1` | No |
-| svc-pay-initiation-settlement | `evt.pay.payment` | `PaymentFailedEvent` | `evt.pay.payment.v1` | `Payments.Payment.Failed.v1` | No |
-| svc-pay-initiation-settlement | `evt.pay.payment` | `PaymentCancelledEvent` | `evt.pay.payment.v1` | `Payments.Payment.Cancelled.v1` | No |
-| svc-pay-initiation-settlement | `evt.pay.payment` | `PaymentRefundedEvent` | `evt.pay.payment.v1` | `Payments.Payment.Refunded.v1` | No |
-| svc-pay-initiation-settlement | `evt.pay.payment` | `LoanPaymentCreatedEvent` | `evt.pay.payment.v1` | `Payments.Payment.LoanPaymentCreated.v1` | No |
-| svc-pay-initiation-settlement | `evt.pay.payment` | `LoanPaymentCompletedEvent` | `evt.pay.payment.v1` | `Payments.Payment.LoanPaymentCompleted.v1` | No |
-| svc-pay-initiation-settlement | `evt.pay.payment` | `LoanPaymentFailedEvent` | `evt.pay.payment.v1` | `Payments.Payment.LoanPaymentFailed.v1` | No |
-| svc-pay-request-to-pay | `evt.pay.rtp` | `PayRequestCreatedEvent` | `evt.pay.rtp.v1` | `Payments.PayRequest.Created.v1` | Yes, to legacy `rtp.pay_requests.v1` without envelope |
-| svc-pay-request-to-pay | `evt.pay.rtp` | `PayRequestAcceptedEvent` | `evt.pay.rtp.v1` | `Payments.PayRequest.Accepted.v1` | Yes, to legacy `rtp.pay_requests.v1` without envelope |
-| svc-pay-request-to-pay | `evt.pay.rtp` | `PayRequestRejectedEvent` | `evt.pay.rtp.v1` | `Payments.PayRequest.Rejected.v1` | Yes, to legacy `rtp.pay_requests.v1` without envelope |
-| svc-cus-profile-kyc | `evt.cus.customer` | `CustomerCreatedEvent` | `evt.cus.customer.v1` | `Customer.Customer.Created.v1` | Via `DomainEventPublisher` after save (implementation not in repo) |
-| svc-cus-profile-kyc | `evt.cus.customer` | `CustomerContactUpdatedEvent` | `evt.cus.customer.v1` | `Customer.Customer.ContactUpdated.v1` | Same |
-| svc-cus-profile-kyc | `evt.cus.customer` | `CustomerCreditLimitUpdatedEvent` | `evt.cus.customer.v1` | `Customer.Customer.CreditLimitUpdated.v1` | Same |
-| svc-cus-profile-kyc | `evt.cus.customer` | `CustomerCreditReservedEvent` | `evt.cus.customer.v1` | `Customer.Customer.CreditReserved.v1` | Same |
-| svc-cus-profile-kyc | `evt.cus.customer` | `CustomerCreditReleasedEvent` | `evt.cus.customer.v1` | `Customer.Customer.CreditReleased.v1` | Same |
-| svc-cus-profile-kyc | `evt.cus.customer` | `CustomerCreditScoreUpdatedEvent` | `evt.cus.customer.v1` | `Customer.Customer.CreditScoreUpdated.v1` | Same |
+| svc-ln-loan-lifecycle | `evt.ln.loan` | `LoanCreatedEvent` | `evt.ln.loan.created.v1` | `Lending.Loan.Created.v1` | No: raised on aggregate, no publisher adapter |
+| svc-ln-loan-lifecycle | `evt.ln.loan` | `LoanApprovedEvent` | `evt.ln.loan.approved.v1` | `Lending.Loan.Approved.v1` | No |
+| svc-ln-loan-lifecycle | `evt.ln.loan` | `LoanRejectedEvent` | `evt.ln.loan.rejected.v1` | `Lending.Loan.Rejected.v1` | No |
+| svc-ln-loan-lifecycle | `evt.ln.loan` | `LoanDisbursedEvent` | `evt.ln.loan.disbursed.v1` | `Lending.Loan.Disbursed.v1` | No |
+| svc-ln-loan-lifecycle | `evt.ln.loan` | `LoanCancelledEvent` | `evt.ln.loan.cancelled.v1` | `Lending.Loan.Cancelled.v1` | No |
+| svc-ln-loan-lifecycle | `evt.ln.loan` | `LoanPaymentMadeEvent` | `evt.ln.loan.payment-made.v1` | `Lending.Loan.PaymentMade.v1` | No |
+| svc-ln-loan-lifecycle | `evt.ln.loan` | `LoanFullyPaidEvent` | `evt.ln.loan.fully-paid.v1` | `Lending.Loan.FullyPaid.v1` | No |
+| svc-pay-initiation-settlement | `evt.pay.payment` | `PaymentCreatedEvent` | `evt.pay.payment.created.v1` | `Payments.Payment.Created.v1` | No: raised on aggregate, no publisher adapter |
+| svc-pay-initiation-settlement | `evt.pay.payment` | `PaymentProcessingEvent` | `evt.pay.payment.processing-started.v1` | `Payments.Payment.ProcessingStarted.v1` | No |
+| svc-pay-initiation-settlement | `evt.pay.payment` | `PaymentCompletedEvent` | `evt.pay.payment.completed.v1` | `Payments.Payment.Completed.v1` | No |
+| svc-pay-initiation-settlement | `evt.pay.payment` | `PaymentFailedEvent` | `evt.pay.payment.failed.v1` | `Payments.Payment.Failed.v1` | No |
+| svc-pay-initiation-settlement | `evt.pay.payment` | `PaymentCancelledEvent` | `evt.pay.payment.cancelled.v1` | `Payments.Payment.Cancelled.v1` | No |
+| svc-pay-initiation-settlement | `evt.pay.payment` | `PaymentRefundedEvent` | `evt.pay.payment.refunded.v1` | `Payments.Payment.Refunded.v1` | No |
+| svc-pay-initiation-settlement | `evt.pay.payment` | `LoanPaymentCreatedEvent` | `evt.pay.payment.loan-payment-created.v1` | `Payments.Payment.LoanPaymentCreated.v1` | No |
+| svc-pay-initiation-settlement | `evt.pay.payment` | `LoanPaymentCompletedEvent` | `evt.pay.payment.loan-payment-completed.v1` | `Payments.Payment.LoanPaymentCompleted.v1` | No |
+| svc-pay-initiation-settlement | `evt.pay.payment` | `LoanPaymentFailedEvent` | `evt.pay.payment.loan-payment-failed.v1` | `Payments.Payment.LoanPaymentFailed.v1` | No |
+| svc-pay-request-to-pay | `evt.pay.rtp` | `PayRequestCreatedEvent` | `evt.pay.rtp.created.v1` | `Payments.PayRequest.Created.v1` | Yes, to legacy `rtp.pay_requests.v1` without envelope |
+| svc-pay-request-to-pay | `evt.pay.rtp` | `PayRequestAcceptedEvent` | `evt.pay.rtp.accepted.v1` | `Payments.PayRequest.Accepted.v1` | Yes, to legacy `rtp.pay_requests.v1` without envelope |
+| svc-pay-request-to-pay | `evt.pay.rtp` | `PayRequestRejectedEvent` | `evt.pay.rtp.rejected.v1` | `Payments.PayRequest.Rejected.v1` | Yes, to legacy `rtp.pay_requests.v1` without envelope |
+| svc-cus-profile-kyc | `evt.cus.customer` | `CustomerCreatedEvent` | `evt.cus.customer.created.v1` | `Customer.Customer.Created.v1` | Via `DomainEventPublisher` after save (implementation not in repo) |
+| svc-cus-profile-kyc | `evt.cus.customer` | `CustomerContactUpdatedEvent` | `evt.cus.customer.contact-updated.v1` | `Customer.Customer.ContactUpdated.v1` | Same |
+| svc-cus-profile-kyc | `evt.cus.customer` | `CustomerCreditLimitUpdatedEvent` | `evt.cus.customer.credit-limit-updated.v1` | `Customer.Customer.CreditLimitUpdated.v1` | Same |
+| svc-cus-profile-kyc | `evt.cus.customer` | `CustomerCreditReservedEvent` | `evt.cus.customer.credit-reserved.v1` | `Customer.Customer.CreditReserved.v1` | Same |
+| svc-cus-profile-kyc | `evt.cus.customer` | `CustomerCreditReleasedEvent` | `evt.cus.customer.credit-released.v1` | `Customer.Customer.CreditReleased.v1` | Same |
+| svc-cus-profile-kyc | `evt.cus.customer` | `CustomerCreditScoreUpdatedEvent` | `evt.cus.customer.credit-score-updated.v1` | `Customer.Customer.CreditScoreUpdated.v1` | Same |
 
 Dead-letter topics created: `evt.ln.loan.dlq.v1`, `evt.pay.payment.dlq.v1`, `evt.pay.rtp.dlq.v1`, `evt.cus.customer.dlq.v1`.
 
@@ -63,32 +61,32 @@ Contracts: `asyncapi/<service-id>.yaml` in `fintechbankx-governance-api-contract
 
 "None" means no service publishes an equivalent event today; the legacy topic has no standard replacement yet.
 
-| Legacy topic | Standard topic (event type) | Notes |
+| Legacy topic | Standard topic | Notes |
 |---|---|---|
-| `customer.created` | `evt.cus.customer.v1` (`Created`) | |
-| `customer.updated` | `evt.cus.customer.v1` (`ContactUpdated`) | Legacy topic was generic; the new event covers contact changes only |
-| `customer.credit.updated` | `evt.cus.customer.v1` (`CreditLimitUpdated`, `CreditScoreUpdated`) | Split by fact |
-| `customer.events` (compacted stream) | `evt.cus.customer.v1` (all) | Was a compacted state stream; the new topic is a delete-policy event stream |
+| `customer.created` | `evt.cus.customer.created.v1` | |
+| `customer.updated` | `evt.cus.customer.contact-updated.v1` | Legacy topic was generic; new topic covers contact changes only |
+| `customer.credit.updated` | `evt.cus.customer.credit-limit-updated.v1`, `evt.cus.customer.credit-score-updated.v1` | Split by fact |
+| `customer.events` (compacted stream) | all `evt.cus.customer.*.v1` | Aggregate stream; no 1:1 replacement |
 | `customer.activated`, `customer.suspended`, `customer.closed`, `customer.kyc.completed` | None | No event class in `svc-cus-profile-kyc` |
-| `loan.application.submitted` | `evt.ln.loan.v1` (`Created`) | |
-| `loan.application.approved` | `evt.ln.loan.v1` (`Approved`) | |
-| `loan.application.rejected` | `evt.ln.loan.v1` (`Rejected`) | |
-| `loan.disbursed` | `evt.ln.loan.v1` (`Disbursed`) | |
-| `loan.payment.made` | `evt.ln.loan.v1` (`PaymentMade`) | |
-| `loan.paid.off` | `evt.ln.loan.v1` (`FullyPaid`) | |
-| `loan.events` (compacted stream) | `evt.ln.loan.v1` (all) | Was a compacted state stream; the new topic is a delete-policy event stream |
+| `loan.application.submitted` | `evt.ln.loan.created.v1` | |
+| `loan.application.approved` | `evt.ln.loan.approved.v1` | |
+| `loan.application.rejected` | `evt.ln.loan.rejected.v1` | |
+| `loan.disbursed` | `evt.ln.loan.disbursed.v1` | |
+| `loan.payment.made` | `evt.ln.loan.payment-made.v1` | |
+| `loan.paid.off` | `evt.ln.loan.fully-paid.v1` | |
+| `loan.events` (compacted stream) | all `evt.ln.loan.*.v1` | Aggregate stream; no 1:1 replacement |
 | `loan.payment.overdue`, `loan.defaulted`, `loan.restructured` | None | No event class in `svc-ln-loan-lifecycle` |
-| (none) | `evt.ln.loan.v1` (`Cancelled`) | New |
-| `payment.initiated` | `evt.pay.payment.v1` (`Created`) | |
-| `payment.processed` | `evt.pay.payment.v1` (`ProcessingStarted`) | Legacy semantics unclear; confirm with consumers |
-| `payment.completed` | `evt.pay.payment.v1` (`Completed`) | |
-| `payment.failed` | `evt.pay.payment.v1` (`Failed`) | |
-| `payment.cancelled` | `evt.pay.payment.v1` (`Cancelled`) | |
-| `payment.refunded` | `evt.pay.payment.v1` (`Refunded`) | |
-| `payment.events` | `evt.pay.payment.v1` (all) | |
+| (none) | `evt.ln.loan.cancelled.v1` | New |
+| `payment.initiated` | `evt.pay.payment.created.v1` | |
+| `payment.processed` | `evt.pay.payment.processing-started.v1` | Legacy semantics unclear; confirm with consumers |
+| `payment.completed` | `evt.pay.payment.completed.v1` | |
+| `payment.failed` | `evt.pay.payment.failed.v1` | |
+| `payment.cancelled` | `evt.pay.payment.cancelled.v1` | |
+| `payment.refunded` | `evt.pay.payment.refunded.v1` | |
+| `payment.events` | all `evt.pay.payment.*.v1` | Aggregate stream |
 | `payment.reversed` | None | No event class |
-| (none) | `evt.pay.payment.v1` (`LoanPaymentCreated`, `LoanPaymentCompleted`, `LoanPaymentFailed`) | New |
-| `rtp.pay_requests.v1` | `evt.pay.rtp.v1` (`Created`, `Accepted`, `Rejected`) | Produced today by `KafkaPayRequestNotificationAdapter`; same one-topic shape, payload moves into the envelope `data` |
+| (none) | `evt.pay.payment.loan-payment-created.v1`, `...loan-payment-completed.v1`, `...loan-payment-failed.v1` | New |
+| `rtp.pay_requests.v1` | `evt.pay.rtp.created.v1`, `evt.pay.rtp.accepted.v1`, `evt.pay.rtp.rejected.v1` | Produced today by `KafkaPayRequestNotificationAdapter`; one topic split into three, payload moves into the envelope `data` |
 | `deadletter.customer` | `evt.cus.customer.dlq.v1` | |
 | `deadletter.loan` | `evt.ln.loan.dlq.v1` | |
 | `deadletter.payment` | `evt.pay.payment.dlq.v1` | |

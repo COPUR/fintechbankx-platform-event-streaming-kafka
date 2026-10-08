@@ -3,8 +3,7 @@
 # FinTechBankX event platform (svc-evt-streaming) - Kafka topic provisioning.
 #
 # Creates the standard topics from NAMING_CONVENTION_DDD_EDA_BUSINESS_CONTEXT.md:
-#   event topic : evt.<ctx>.<aggregate>.v<major>        (one per aggregate; all of
-#                 its events, keyed by aggregateId, eventType in the header)
+#   event topic : evt.<ctx>.<aggregate>.<event>.v<major>
 #   dead letter : evt.<ctx>.<aggregate>.dlq.v<major>   (one per aggregate namespace)
 #
 # The topic list mirrors the event inventory in
@@ -64,26 +63,41 @@ readonly LEGACY_LONG_RETENTION_MS=31536000000
 # Source of each entry: see docs/architecture/TOPIC_NAMING_MIGRATION.md.
 # ---------------------------------------------------------------------------
 readonly STANDARD_EVENT_TOPICS=(
-  # svc-ln-loan-lifecycle, aggregate Loan. Event types Lending.Loan.<Event>.v1:
-  # Created, Approved, Rejected, Disbursed, Cancelled, PaymentMade, FullyPaid
-  evt.ln.loan.v1
+  # svc-ln-loan-lifecycle, namespace evt.ln.loan (aggregate Loan)
+  evt.ln.loan.created.v1
+  evt.ln.loan.approved.v1
+  evt.ln.loan.rejected.v1
+  evt.ln.loan.disbursed.v1
+  evt.ln.loan.cancelled.v1
+  evt.ln.loan.payment-made.v1
+  evt.ln.loan.fully-paid.v1
 
-  # svc-pay-initiation-settlement, aggregate Payment. Event types Payments.Payment.<Event>.v1:
-  # Created, ProcessingStarted, Completed, Failed, Cancelled, Refunded,
-  # LoanPaymentCreated, LoanPaymentCompleted, LoanPaymentFailed
-  evt.pay.payment.v1
+  # svc-pay-initiation-settlement, namespace evt.pay.payment (aggregate Payment)
+  evt.pay.payment.created.v1
+  evt.pay.payment.processing-started.v1
+  evt.pay.payment.completed.v1
+  evt.pay.payment.failed.v1
+  evt.pay.payment.cancelled.v1
+  evt.pay.payment.refunded.v1
+  evt.pay.payment.loan-payment-created.v1
+  evt.pay.payment.loan-payment-completed.v1
+  evt.pay.payment.loan-payment-failed.v1
 
-  # svc-pay-request-to-pay, aggregate PayRequest. Event types Payments.PayRequest.<Event>.v1:
-  # Created, Accepted, Rejected
-  evt.pay.rtp.v1
+  # svc-pay-request-to-pay, namespace evt.pay.rtp (aggregate PayRequest)
+  evt.pay.rtp.created.v1
+  evt.pay.rtp.accepted.v1
+  evt.pay.rtp.rejected.v1
 
-  # svc-cus-profile-kyc, aggregate Customer. Event types Customer.Customer.<Event>.v1:
-  # Created, ContactUpdated, CreditLimitUpdated, CreditReserved, CreditReleased,
-  # CreditScoreUpdated
-  evt.cus.customer.v1
+  # svc-cus-profile-kyc, namespace evt.cus.customer (aggregate Customer)
+  evt.cus.customer.created.v1
+  evt.cus.customer.contact-updated.v1
+  evt.cus.customer.credit-limit-updated.v1
+  evt.cus.customer.credit-reserved.v1
+  evt.cus.customer.credit-released.v1
+  evt.cus.customer.credit-score-updated.v1
 )
 
-readonly TOPIC_PATTERN='^evt\.[a-z]+\.[a-z0-9]+(-[a-z0-9]+)*\.v[0-9]+$'
+readonly TOPIC_PATTERN='^evt\.[a-z]+\.[a-z0-9]+(-[a-z0-9]+)*\.[a-z0-9]+(-[a-z0-9]+)*\.v[0-9]+$'
 
 log() { printf '%s %s\n' "[create-topics]" "$*"; }
 die() { printf '%s ERROR: %s\n' "[create-topics]" "$*" >&2; exit 1; }
@@ -116,7 +130,7 @@ validate_settings() {
 validate_topic_names() {
   local topic
   for topic in "${STANDARD_EVENT_TOPICS[@]}"; do
-    [[ "${topic}" =~ ${TOPIC_PATTERN} ]] || die "topic '${topic}' does not match evt.<ctx>.<aggregate>.v<major>"
+    [[ "${topic}" =~ ${TOPIC_PATTERN} ]] || die "topic '${topic}' does not match evt.<ctx>.<aggregate>.<event>.v<major>"
     [[ "${topic}" != *.dlq.v* ]] || die "topic '${topic}': DLQs are derived, do not list them"
   done
 }
