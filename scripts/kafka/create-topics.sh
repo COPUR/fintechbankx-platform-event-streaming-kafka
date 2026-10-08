@@ -129,7 +129,9 @@ load_catalog() {
     max_bytes="${MAX_MESSAGE_BYTES:-${max_bytes}}"
     local value
     for value in "${partitions}" "${rf}" "${min_isr}" "${retention}" "${max_bytes}"; do
-      is_uint "${value}" && (( value >= 1 )) || die "${TOPICS_FILE}:${lineno}: ${name} has a non-positive numeric setting '${value}'"
+      if ! is_uint "${value}" || (( value < 1 )); then
+        die "${TOPICS_FILE}:${lineno}: ${name} has a non-positive numeric setting '${value}'"
+      fi
     done
     (( min_isr <= rf )) || die "${name}: min.insync.replicas (${min_isr}) cannot exceed the replication factor (${rf})"
     CATALOG_ROWS+=("${name} ${kind} ${partitions} ${rf} ${min_isr} ${cleanup} ${retention} ${max_bytes}")

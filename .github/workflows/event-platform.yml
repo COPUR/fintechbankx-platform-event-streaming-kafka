@@ -1,0 +1,75 @@
+name: Event Platform
+
+# Catalog, topic script and manifest checks for the event-streaming platform.
+# Validation only: nothing is applied to a cluster or an AWS account.
+
+on:
+  pull_request:
+  push:
+    branches: [main, dev, staging]
+
+permissions:
+  contents: read
+
+jobs:
+  catalog:
+    name: event-platform/catalog
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Unit tests and generated-file drift check
+        run: |
+          set -euo pipefail
+          npm ci
+          npm test
+
+      - name: Lint create-topics.sh
+        run: shellcheck -S warning scripts/kafka/create-topics.sh
+
+      - name: Dry-run topic creation from the catalog
+        run: |
+          set -euo pipefail
+          DRY_RUN=true scripts/kafka/create-topics.sh
+          DRY_RUN=true REPLICATION_FACTOR=1 MIN_INSYNC_REPLICAS=1 scripts/kafka/create-topics.sh >/dev/null
+
+  manifests:
+    name: event-platform/manifests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      KUBECONFORM_VERSION: v0.6.7
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kubeconform
+        run: |
+          set -euo pipefail
+          tmpdir="$(mktemp -d)"
+          curl -sSfL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
+            | tar -xz -C "$tmpdir"
+          sudo install "$tmpdir/kubeconform" /usr/local/bin/kubeconform
+
+      - name: Render and validate Strimzi manifests (with and without Cruise Control)
+        run: |
+          set -euo pipefail
+          schema='https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
+          kubectl kustomize deploy/strimzi > "$RUNNER_TEMP/strimzi.yaml"
+          kubeconform -strict -summary -schema-location default -schema-location "$schema" "$RUNNER_TEMP/strimzi.yaml"
+          overlay="$RUNNER_TEMP/strimzi-cc"
+          mkdir -p "$overlay"
+          cp -r deploy/strimzi/. "$overlay/"
+          printf 'components:\n  - optional/cruise-control\n' >> "$overlay/kustomization.yaml"
+          kubectl kustomize "$overlay" > "$RUNNER_TEMP/strimzi-cc.yaml"
+          kubeconform -strict -summary -schema-location default -schema-location "$schema" "$RUNNER_TEMP/strimzi-cc.yaml"
+
+      - name: Validate local compose file
+        run: docker compose -f deploy/local/docker-compose.yml config -q
