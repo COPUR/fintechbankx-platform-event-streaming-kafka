@@ -88,6 +88,15 @@ Envelope fields: `eventId` (UUID, idempotency key), `eventType` (`<Context>.<Agg
 Headers on every record: `eventType`, `eventId`, `correlationId` (required); `x-fapi-interaction-id` when the flow
 started at a FAPI API; `traceparent` (W3C) so traces cross the broker.
 
+Event topics are never compacted (`cleanup.policy=delete`; the catalog rejects anything else). Two reasons:
+an event is a fact, not a state snapshot; and each event type has its own topic, so compacting one topic
+keeps the latest *created* or the latest *revoked* record per key, never the latest state of the aggregate.
+A consumer that needs current state keeps its own projection and rebuilds it by replaying from the earliest
+offset. Consent example: `evt.of.consent.{created,authorized,revoked,expired}.v1` keep 90 days
+(`retention.ms=7776000000`), matching the 90-day consent lifetime, so a replay from earliest sees every
+consent still alive; records are keyed by `consentId`. If a consent could outlive the retention, raise the
+retention or publish a separate state topic owned by consent-auth (an ADR), rather than compacting event topics.
+
 The relay sends one row at a time in insertion order under a Postgres advisory lock, so only one replica publishes and
 an aggregate's events keep their order. A Kafka outage does not fail business requests: rows wait in the outbox. Alert
 on the outbox backlog gauge.
