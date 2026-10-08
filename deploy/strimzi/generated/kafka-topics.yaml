@@ -777,7 +777,7 @@ metadata:
     fintechbankx.io/owner: svc-cmp-evidence
   annotations:
     fintechbankx.io/contract: asyncapi/svc-cmp-evidence.yaml
-    fintechbankx.io/event-type: Compliance.ComplianceResult.Screened.v1
+    fintechbankx.io/event-type: Compliance.ComplianceScreening.Screened.v1
     fintechbankx.io/dlq: evt.cmp.compliance.dlq.v1
 spec:
   topicName: evt.cmp.compliance.screened.v1

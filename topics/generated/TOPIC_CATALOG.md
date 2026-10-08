@@ -38,7 +38,7 @@ Defaults: replication factor 3, min.insync.replicas 2, cleanup.policy delete. Re
 | `evt.cus.customer.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | consumers of the namespace (none yet) | outbox-relay |
 | `evt.rsk.risk.assessed.v1` | event | svc-rsk-decisioning | `Risk.RiskAssessment.Assessed.v1` | 3 | 604800000 | `evt.rsk.risk.dlq.v1` | unknown (none in code) | contract-only |
 | `evt.rsk.risk.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | consumers of the namespace (none yet) | contract-only |
-| `evt.cmp.compliance.screened.v1` | event | svc-cmp-evidence | `Compliance.ComplianceResult.Screened.v1` | 3 | 604800000 | `evt.cmp.compliance.dlq.v1` | unknown (none in code) | contract-only |
+| `evt.cmp.compliance.screened.v1` | event | svc-cmp-evidence | `Compliance.ComplianceScreening.Screened.v1` | 3 | 604800000 | `evt.cmp.compliance.dlq.v1` | unknown (none in code) | contract-only |
 | `evt.cmp.compliance.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | consumers of the namespace (none yet) | contract-only |
 
 ## Gaps (not provisioned)

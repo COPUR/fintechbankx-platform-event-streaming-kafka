@@ -8,7 +8,7 @@ Nothing in this repository has been switched; the catalog keeps the current sche
 
 The naming standard (`NAMING_CONVENTION_DDD_EDA_BUSINESS_CONTEXT.md`) gives one topic per event type:
 `evt.<ctx>.<aggregate>.<event>.v<major>`. The catalog therefore has 27 event topics for 6 aggregates
-(Loan 7, Payment 9, PayRequest 3, Customer 6, RiskAssessment 1, ComplianceResult 1) plus one DLQ per aggregate.
+(Loan 7, Payment 9, PayRequest 3, Customer 6, RiskAssessment 1, ComplianceScreening 1) plus one DLQ per aggregate.
 Every record is keyed by `aggregateId`.
 
 ## The ordering implication

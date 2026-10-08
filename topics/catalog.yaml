@@ -153,11 +153,9 @@ namespaces:
       - {event: credit-score-updated, major: 1, eventType: Customer.Customer.CreditScoreUpdated.v1}
 
   # Added on request of the risk/compliance thread. Their AsyncAPI contracts
-  # are on an asyncapi-catalog branch that was not on the remote on
-  # 2026-10-08, and neither service repository publishes these events in code
-  # yet, so both namespaces are contract-only. The eventType aggregate names
-  # are assumed from the domain classes (RiskAssessment, ComplianceResult);
-  # confirm them against the contracts when they land.
+  # are in asyncapi-catalog PR #11 (stacked on #10); eventTypes confirmed by
+  # that thread on 2026-10-08. Neither service repository publishes these
+  # events in code yet, so both namespaces are contract-only.
   - namespace: evt.rsk.risk
     owner: svc-rsk-decisioning
     aggregate: RiskAssessment
@@ -165,7 +163,7 @@ namespaces:
     implementation: contract-only
     implementationEvidence: >-
       Requested by the risk/compliance thread (asyncapi-catalog branch
-      claude/customer-risk-compliance-deployable-ygi0zo, not yet pushed). No
+      PR #11, branch claude/customer-risk-compliance-deployable-ygi0zo). No
       publisher in fintechbankx-riskcompliance-risk-decisioning-core.
     dlq:
       retentionMs: 1209600000   # 14 days
@@ -176,19 +174,19 @@ namespaces:
 
   - namespace: evt.cmp.compliance
     owner: svc-cmp-evidence
-    aggregate: ComplianceResult
+    aggregate: ComplianceScreening
     contract: asyncapi/svc-cmp-evidence.yaml
     implementation: contract-only
     implementationEvidence: >-
       Requested by the risk/compliance thread (asyncapi-catalog branch
-      claude/customer-risk-compliance-deployable-ygi0zo, not yet pushed). No
+      PR #11, branch claude/customer-risk-compliance-deployable-ygi0zo). No
       publisher in fintechbankx-riskcompliance-compliance-evidence-core.
     dlq:
       retentionMs: 1209600000   # 14 days
     consumersStatus: unknown
     consumers: []
     topics:
-      - {event: screened, major: 1, eventType: Compliance.ComplianceResult.Screened.v1}
+      - {event: screened, major: 1, eventType: Compliance.ComplianceScreening.Screened.v1}
 
 # Namespaces in the bootstrap manifest with no catalog topics, and producers
 # that write to non-standard topics. Not provisioned; listed so the gap is visible.
