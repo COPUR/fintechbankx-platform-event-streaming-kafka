@@ -12,7 +12,7 @@ not applied to any cluster. AWS environments use Amazon MSK instead ([../msk/REA
 | [`kafka.yaml`](kafka.yaml) | `Kafka` `fintechbankx`: KRaft, rack awareness on `topology.kubernetes.io/zone`, TLS listener 9093 with client-certificate auth, simple authorization, RF 3 / `min.insync.replicas` 2, `auto.create.topics.enable=false`, `unclean.leader.election.enable=false`, TLS 1.3, PDB `maxUnavailable: 1`, JMX Prometheus metrics, Kafka Exporter for `evt.*` topics and `cg.*` groups |
 | [`generated/kafka-metrics-configmap.yaml`](generated/kafka-metrics-configmap.yaml) | JMX exporter rules, rendered from [`monitoring/jmx/kafka.yml`](../../monitoring/jmx/kafka.yml) |
 | [`generated/kafka-topics.yaml`](generated/kafka-topics.yaml) | One `KafkaTopic` per catalog topic and DLQ |
-| [`generated/kafka-users.yaml`](generated/kafka-users.yaml) | One `KafkaUser` per service: TLS auth, ACLs owner `Write` on its events, consumers `Read` on what they consume plus their `cg.<service-id>.` group prefix and `Write` on the namespace DLQ |
+| [`generated/kafka-users.yaml`](generated/kafka-users.yaml) | One `KafkaUser` per service: TLS auth, ACLs owner `Write` on its events, consumers `Read` on what they consume plus their `cg.<service-id>.` group prefix and `Write`/`Read` on the DLQ of their own namespace (consumer-owned, ADR-019); nobody else writes a DLQ |
 | [`optional/cruise-control`](optional/cruise-control/kustomization.yaml) | Kustomize component: Cruise Control and a proposal-only `KafkaRebalance` |
 
 The `generated/` files come from [`topics/catalog.yaml`](../../topics/catalog.yaml); edit the catalog, not them.

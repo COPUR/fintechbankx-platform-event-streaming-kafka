@@ -38,9 +38,9 @@ evt.of.consent.created.v1	event	6	3	2	delete	7776000000	1048576
 evt.of.consent.authorized.v1	event	6	3	2	delete	7776000000	1048576
 evt.of.consent.revoked.v1	event	6	3	2	delete	7776000000	1048576
 evt.of.consent.expired.v1	event	6	3	2	delete	7776000000	1048576
-evt.of.consent.dlq.v1	dlq	3	3	2	delete	1209600000	1048576
+evt.of.consent.dlq.v1	dlq	6	3	2	delete	1209600000	1048576
 evt.of.payee.verification-completed.v1	event	6	3	2	delete	604800000	1048576
-evt.of.payee.dlq.v1	dlq	3	3	2	delete	1209600000	1048576
+evt.of.payee.dlq.v1	dlq	6	3	2	delete	1209600000	1048576
 evt.of.account.dlq.v1	dlq	3	3	2	delete	1209600000	1048576
 evt.of.corporate.dlq.v1	dlq	3	3	2	delete	1209600000	1048576
 evt.of.metadata.dlq.v1	dlq	3	3	2	delete	1209600000	1048576

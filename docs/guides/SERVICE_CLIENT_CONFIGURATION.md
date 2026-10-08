@@ -112,18 +112,31 @@ the producer's dual-publish window and de-duplicate on `eventId`.
 
 ### Retries and the dead-letter topic
 
-Each namespace has one DLQ, `evt.<ctx>.<aggregate>.dlq.v<major>`. A consumer that gives up writes either the source
-namespace DLQ (default) or, if its catalog entry sets `dlq:`, the DLQ of its own namespace; the catalog grants it write
-and read on exactly that one. Do not block a partition forever:
+Dead-letter topics are **consumer-owned** (ADR-019 / ADR-024 in the ADR repository). Each namespace has one DLQ,
+`evt.<ctx>.<aggregate>.dlq.v<major>`, and only that namespace's own service writes it: a consumer that gives up on a
+record writes it to the DLQ of **its own** namespace, never to the source topic's namespace. Example: the loan service
+dead-letters a failed `evt.pay.payment.loan-payment-completed.v1` record to `evt.ln.loan.dlq.v1`, not to
+`evt.pay.payment.dlq.v1`. A consumer-only service (no events of its own, such as the open-finance consent projections)
+still gets its namespace DLQ. The catalog grants write and read on that DLQ to its own service only. Do not block a
+partition forever:
 
 1. Retry in-process with exponential backoff, bounded (for example 3 attempts: 1 s, 2 s, 4 s).
 2. Send to the DLQ immediately, without retries, for errors that cannot heal: deserialization, contract violation,
    unknown `eventType` version.
-3. Copy key and value unchanged and add the headers from `DeadLetterHeaders` in the envelope schema:
-   `eventType`, `eventId`, `correlationId`, `dlq-original-topic`, `dlq-original-partition`, `dlq-original-offset`,
-   `dlq-consumer-group`, `dlq-attempts`, `dlq-error-class`, `dlq-failed-at`. Put the exception class, never the
-   exception message (it can contain personal data).
-4. Redrive after a fix by replaying the DLQ records through the same idempotent handler.
+3. Copy key and value unchanged and add the headers from `DeadLetterHeaders` in the envelope schema. These four
+   identify the source so the owning team can replay it:
+
+   | Header | Value |
+   |---|---|
+   | `dlq-original-topic` | source topic, e.g. `evt.pay.payment.loan-payment-completed.v1` |
+   | `dlq-original-partition` | source partition |
+   | `dlq-original-offset` | source offset |
+   | `dlq-consumer-group` | the group that gave up, `cg.<service-id>.<purpose>.v<major>` |
+
+   Also set `eventType`, `eventId`, `correlationId`, `dlq-attempts`, `dlq-error-class` and `dlq-failed-at`. Put the
+   exception class, never the exception message (it can contain personal data).
+4. Redrive after a fix by replaying the DLQ records through the same idempotent handler (the DLQ is yours, so the
+   redrive is too).
 
 Spring Kafka sketch:
 
@@ -131,7 +144,7 @@ Spring Kafka sketch:
 @Bean
 DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<String, String> template) {
     var recoverer = new DeadLetterPublishingRecoverer(template,
-        (record, ex) -> new TopicPartition(Dlq.topicFor(record.topic()), -1)); // evt.<ctx>.<agg>.dlq.v<major>
+        (record, ex) -> new TopicPartition("evt.ln.loan.dlq.v1", -1)); // always the consumer's OWN namespace DLQ
     recoverer.excludeHeader(HeaderNames.HeadersToAdd.EXCEPTION_MESSAGE,
         HeaderNames.HeadersToAdd.EX_STACKTRACE); // no free text in DLQ headers
     recoverer.setHeadersFunction((record, ex) -> DlqHeaders.of(record, ex, "cg.svc-...-purpose.v1"));

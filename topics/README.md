@@ -39,9 +39,10 @@ node scripts/catalog/generate.mjs --check --asyncapi <asyncapi-catalog-checkout>
 - `cleanup.policy` is `delete` (events are immutable facts); `min.insync.replicas` is lower than the replication
   factor (defaults 2 and 3).
 - A consumer needs a code or config reference (`evidence`), a consumer group `cg.<service-id>.<purpose>.v<major>` and
-  the exact topics it reads. A consumer writes and reads (redrive) one DLQ: by default the source namespace DLQ, or
-  with `dlq:` the DLQ of its own manifest namespace (provisioned even if that namespace has no event topics yet, as
-  for the open-finance consent projections). The owner only writes its events.
+  the exact topics it reads. DLQs are consumer-owned (ADR-019): a consumer writes and reads (redrive) only the DLQ of
+  its own namespace (`services.<id>.eventNamespace`, checked against the manifest). `dlq:`, if set, must be that
+  topic; the source namespace DLQ is rejected. A consumer-only service still gets its namespace DLQ (as for the
+  open-finance consent projections). A pure producer only writes its events.
 
 ## Bootstrap manifest copy
 

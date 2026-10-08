@@ -65,9 +65,9 @@ IRSA subject (`kubernetes_namespace`, `service_account`) and:
 
 | Field | Meaning | IAM actions the module should grant |
 |---|---|---|
-| `produce_topics` | Exact topics the service writes (its events; DLQs of namespaces it consumes) | `DescribeTopic`, `WriteData` on each topic ARN; `WriteDataIdempotently` on the cluster (idempotent producer) |
+| `produce_topics` | Exact topics the service writes (its events and, if it consumes, its own namespace DLQ) | `DescribeTopic`, `WriteData` on each topic ARN; `WriteDataIdempotently` on the cluster (idempotent producer) |
 | `produce_topic_prefixes` | The namespaces it owns, `evt.<ctx>.<aggregate>.` | same, as `topic/.../<prefix>*` |
-| `consume_topics` | Exact topics it reads, including the DLQs it redrives | `DescribeTopic`, `ReadData` |
+| `consume_topics` | Exact topics it reads, including its own DLQ (redrive) | `DescribeTopic`, `ReadData` |
 | `consumer_groups` | Declared groups `cg.<service-id>.<purpose>.v<major>` | `DescribeGroup`, `AlterGroup` on `group/.../<group>` |
 | `consumer_group_prefixes` | `cg.<service-id>.` (used for Strimzi ACLs) | optional prefix form of the above |
 
@@ -96,9 +96,9 @@ module "kafka_access" {
 }
 ```
 
-Known gap: the in-progress module grants produce rights only by owned prefix, so a consumer cannot be granted write
-on another namespace's DLQ (`produce_topics` entries outside its prefixes). No service consumes yet, so nothing is
-blocked today; the module needs an exact `produce_topics` input before the first consumer ships.
+DLQs are consumer-owned (ADR-019): a service only ever writes the DLQ of its own namespace, which its
+`produce_topic_prefixes` entry already covers. A consumer-only service (for example `svc-of-personal-financial-data`)
+gets its namespace prefix for that reason even though it publishes no events.
 
 ## 4. Service runtime settings
 

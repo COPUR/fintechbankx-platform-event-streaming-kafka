@@ -13,6 +13,9 @@
 #     event_namespace in topics/registry/repository-bootstrap-manifest.csv
 #     must equal the namespace (the owner is the only allowed producer)
 #   - consumer groups are cg.<consumer-service-id>.<purpose>.v<major>
+#   - DLQs are consumer-owned (ADR-019): a consumer dead-letters into
+#     <its own namespace>.dlq.v<major>; only that namespace's service may
+#     write it
 #   - event topics are immutable facts: cleanup.policy=delete, never compact
 #   - min.insync.replicas < replication factor, so one broker or zone can fail
 #
@@ -51,40 +54,53 @@ defaults:
     retentionMs: 1209600000     # 14 days
 
 # Runtime identity of every service that produces or consumes a catalog topic.
+# eventNamespace must equal the bootstrap manifest; it is where the service
+# produces and where its consumer-owned DLQ lives (ADR-019).
 # k8sNamespace and serviceAccount follow the platform contract; they become the
 # IRSA subject (MSK) and the KafkaUser labels (Strimzi).
 services:
   svc-ln-loan-lifecycle:
+    eventNamespace: evt.ln.loan
     k8sNamespace: lending
     serviceAccount: loan-lifecycle-service
   svc-pay-initiation-settlement:
+    eventNamespace: evt.pay.payment
     k8sNamespace: payments
     serviceAccount: payment-initiation-settlement-service
   svc-pay-request-to-pay:
+    eventNamespace: evt.pay.rtp
     k8sNamespace: payments
     serviceAccount: payment-request-to-pay-service   # confirmed by the service thread
   svc-of-consent-authorization:
+    eventNamespace: evt.of.consent
     k8sNamespace: open-finance
     serviceAccount: consent-authorization-service
   svc-of-payee-verification:
+    eventNamespace: evt.of.payee
     k8sNamespace: open-finance
     serviceAccount: payee-verification-service
   svc-of-personal-financial-data:
+    eventNamespace: evt.of.account
     k8sNamespace: open-finance
     serviceAccount: personal-financial-data-service
   svc-of-business-financial-data:
+    eventNamespace: evt.of.corporate
     k8sNamespace: open-finance
     serviceAccount: business-financial-data-service
   svc-of-banking-metadata:
+    eventNamespace: evt.of.metadata
     k8sNamespace: open-finance
     serviceAccount: banking-metadata-service
   svc-cus-profile-kyc:
+    eventNamespace: evt.cus.customer
     k8sNamespace: customer
     serviceAccount: customer-profile-kyc-service
   svc-rsk-decisioning:
+    eventNamespace: evt.rsk.risk
     k8sNamespace: risk
     serviceAccount: risk-decisioning-service
   svc-cmp-evidence:
+    eventNamespace: evt.cmp.compliance
     k8sNamespace: compliance
     serviceAccount: compliance-evidence-service
 
@@ -122,7 +138,7 @@ namespaces:
       - service: svc-ln-loan-lifecycle
         group: cg.svc-ln-loan-lifecycle.loan-repayment-allocation.v1
         topics: [evt.pay.payment.loan-payment-completed.v1]
-        dlq: evt.pay.payment.dlq.v1
+        dlq: evt.ln.loan.dlq.v1   # consumer-owned DLQ (ADR-019)
         evidence: >-
           Confirmed by the loan-lifecycle service thread on 2026-10-08
           (repayment allocation listener, in progress); not yet in code on
@@ -211,17 +227,19 @@ namespaces:
       - {event: screened, major: 1, eventType: Compliance.ComplianceScreening.Screened.v1}
 
   # Open finance (confirmed by the open-finance service thread, 2026-10-08).
-  # No AsyncAPI contract for these services exists on any asyncapi-catalog
-  # branch yet, so the eventType values are assumed
-  # (OpenFinance.<Aggregate>.<Event>.v1) and must be checked against the
-  # contracts when they land.
+  # EventTypes, partitions and retention confirmed by the contracts in
+  # asyncapi-catalog PR #12 (branch claude/openfinance-deployable-ra36dq),
+  # which also declare the consent consumers via x-consumers.
   - namespace: evt.of.consent
     owner: svc-of-consent-authorization
     aggregate: Consent
     contract: asyncapi/svc-of-consent-authorization.yaml
     implementation: outbox-relay
+    dlq:
+      partitions: 6             # as in the contract
     implementationEvidence: >-
-      Outbox relay in progress in the open-finance service thread; replaces
+      Contract: asyncapi/svc-of-consent-authorization.yaml (asyncapi-catalog
+      PR #12). Outbox relay in progress in the open-finance service thread; replaces
       the monolith Debezium outbox topic openfinance.provider.consent.v1.
       Not yet in code on the scanned branches.
     # Retention 90 days, delete: consent projections in the consumers rebuild
@@ -258,9 +276,12 @@ namespaces:
     aggregate: PayeeVerification
     contract: asyncapi/svc-of-payee-verification.yaml
     implementation: outbox-relay
+    dlq:
+      partitions: 6             # as in the contract
     implementationEvidence: >-
-      Outbox relay in progress in the open-finance service thread; not yet in
-      code on the scanned branches.
+      Contract: asyncapi/svc-of-payee-verification.yaml (asyncapi-catalog PR
+      #12). Outbox relay in progress in the open-finance service thread; not
+      yet in code on the scanned branches.
     consumersStatus: unknown
     consumers: []
     topics:

@@ -41,16 +41,16 @@
         "evt.ln.loan.cancelled.v1",
         "evt.ln.loan.created.v1",
         "evt.ln.loan.disbursed.v1",
+        "evt.ln.loan.dlq.v1",
         "evt.ln.loan.fully-paid.v1",
         "evt.ln.loan.payment-made.v1",
-        "evt.ln.loan.rejected.v1",
-        "evt.pay.payment.dlq.v1"
+        "evt.ln.loan.rejected.v1"
       ],
       "produce_topic_prefixes": [
         "evt.ln.loan."
       ],
       "consume_topics": [
-        "evt.pay.payment.dlq.v1",
+        "evt.ln.loan.dlq.v1",
         "evt.pay.payment.loan-payment-completed.v1"
       ],
       "consumer_groups": [

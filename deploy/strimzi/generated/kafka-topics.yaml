@@ -927,7 +927,7 @@ metadata:
     fintechbankx.io/contract: asyncapi/svc-of-consent-authorization.yaml
 spec:
   topicName: evt.of.consent.dlq.v1
-  partitions: 3
+  partitions: 6
   replicas: 3
   config:
     cleanup.policy: delete
@@ -975,7 +975,7 @@ metadata:
     fintechbankx.io/contract: asyncapi/svc-of-payee-verification.yaml
 spec:
   topicName: evt.of.payee.dlq.v1
-  partitions: 3
+  partitions: 6
   replicas: 3
   config:
     cleanup.policy: delete

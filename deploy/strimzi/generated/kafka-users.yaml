@@ -148,6 +148,14 @@ spec:
         host: "*"
       - resource:
           type: topic
+          name: evt.ln.loan.dlq.v1
+          patternType: literal
+        operations:
+          - Write
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
           name: evt.ln.loan.fully-paid.v1
           patternType: literal
         operations:
@@ -172,15 +180,7 @@ spec:
         host: "*"
       - resource:
           type: topic
-          name: evt.pay.payment.dlq.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.pay.payment.dlq.v1
+          name: evt.ln.loan.dlq.v1
           patternType: literal
         operations:
           - Read

@@ -49,8 +49,8 @@ function fixture() {
       dlq: { partitions: 3, retentionMs: 1209600000 },
     },
     services: {
-      "svc-ln-loan-lifecycle": { k8sNamespace: "lending", serviceAccount: "loan-lifecycle-service" },
-      "svc-rsk-decisioning": { k8sNamespace: "risk", serviceAccount: "risk-decisioning-service" },
+      "svc-ln-loan-lifecycle": { eventNamespace: "evt.ln.loan", k8sNamespace: "lending", serviceAccount: "loan-lifecycle-service" },
+      "svc-rsk-decisioning": { eventNamespace: "evt.rsk.risk", k8sNamespace: "risk", serviceAccount: "risk-decisioning-service" },
     },
     namespaces: [
       {
@@ -203,7 +203,7 @@ test("resolves defaults, overrides and one DLQ per namespace and major", () => {
   const topics = resolveTopics(fixture());
   assert.deepEqual(
     topics.map((t) => t.name),
-    ["evt.ln.loan.created.v1", "evt.ln.loan.disbursed.v1", "evt.ln.loan.payment-made.v1", "evt.ln.loan.dlq.v1"],
+    ["evt.ln.loan.created.v1", "evt.ln.loan.disbursed.v1", "evt.ln.loan.payment-made.v1", "evt.ln.loan.dlq.v1", "evt.rsk.risk.dlq.v1"],
   );
   const disbursed = topics.find((t) => t.name === "evt.ln.loan.disbursed.v1");
   assert.equal(disbursed.retentionMs, 2592000000);
@@ -211,14 +211,14 @@ test("resolves defaults, overrides and one DLQ per namespace and major", () => {
   assert.deepEqual(disbursed.producers, ["svc-ln-loan-lifecycle"]);
   const dlq = topics.find((t) => t.kind === "dlq");
   assert.equal(dlq.retentionMs, 1209600000);
-  assert.deepEqual(dlq.producers, ["svc-rsk-decisioning"]);
+  assert.deepEqual(dlq.producers, [], "the loan namespace DLQ has no writer: loan consumes nothing here");
 });
 
 test("DLQ partitions and retention are configurable per namespace and validated", () => {
   const c = fixture();
   c.namespaces[0].dlq = { retentionMs: 2419200000, partitions: 1 };
   assert.deepEqual(validateCatalog(c, MANIFEST), []);
-  const dlq = resolveTopics(c).find((t) => t.kind === "dlq");
+  const dlq = resolveTopics(c).find((t) => t.name === "evt.ln.loan.dlq.v1");
   assert.equal(dlq.retentionMs, 2419200000);
   assert.equal(dlq.partitions, 1);
   const bad = fixture();
@@ -229,32 +229,35 @@ test("DLQ partitions and retention are configurable per namespace and validated"
   expectError(unknown, "dlq.cleanupPolicy is not supported");
 });
 
-test("a consumer may write the DLQ of its own namespace, which is provisioned even without event topics", () => {
+test("consumer-owned DLQ: a consumer dead-letters into its own namespace, provisioned even without event topics", () => {
   const c = fixture();
-  c.namespaces[0].consumers[0].dlq = "evt.rsk.risk.dlq.v1";
   assert.deepEqual(validateCatalog(c, MANIFEST), []);
   const topics = resolveTopics(c);
   const own = topics.find((t) => t.name === "evt.rsk.risk.dlq.v1");
   assert.equal(own.kind, "dlq");
   assert.equal(own.owner, "svc-rsk-decisioning");
   assert.deepEqual(own.producers, ["svc-rsk-decisioning"]);
-  assert.deepEqual(topics.find((t) => t.name === "evt.ln.loan.dlq.v1").producers, [], "source DLQ has no writer then");
-  const access = resolveAccess(c)["svc-rsk-decisioning"];
-  assert.deepEqual(access.produce_topics, ["evt.rsk.risk.dlq.v1"]);
-  assert.deepEqual(access.produce_topic_prefixes, ["evt.rsk.risk."]);
-  assert.deepEqual(access.consume_topics, ["evt.ln.loan.disbursed.v1", "evt.rsk.risk.dlq.v1"]);
+  assert.deepEqual(topics.find((t) => t.name === "evt.ln.loan.disbursed.v1").consumers[0].dlq, "evt.rsk.risk.dlq.v1");
+  assert.deepEqual(topics.find((t) => t.name === "evt.ln.loan.dlq.v1").producers, [], "never the source namespace DLQ");
+  c.namespaces[0].consumers[0].dlq = "evt.rsk.risk.dlq.v1";
+  assert.deepEqual(validateCatalog(c, MANIFEST), [], "an explicit own-namespace DLQ is accepted");
 });
 
-test("rejects a consumer DLQ outside the source namespace and the consumer's own namespace", () => {
+test("rejects a consumer DLQ outside its own namespace, including the source namespace DLQ", () => {
+  for (const dlq of ["evt.ln.loan.dlq.v1", "evt.cmp.compliance.dlq.v1", "evt.rsk.risk.dlq.v2"]) {
+    const c = fixture();
+    c.namespaces[0].consumers[0].dlq = dlq;
+    expectError(c, `dlq ${dlq} is outside its own namespace`);
+  }
+});
+
+test("rejects a service eventNamespace that differs from the bootstrap manifest", () => {
   const c = fixture();
-  c.namespaces[0].consumers[0].dlq = "evt.cmp.compliance.dlq.v1";
-  expectError(c, "must be one of evt.ln.loan.dlq.v1, evt.rsk.risk.dlq.v1");
-  const d = fixture();
-  d.namespaces[0].consumers[0].dlq = "evt.rsk.risk.dlq.v2";
-  expectError(d, "must be one of");
+  c.services["svc-rsk-decisioning"].eventNamespace = "evt.ln.loan";
+  expectError(c, "services.svc-rsk-decisioning.eventNamespace must be evt.rsk.risk");
 });
 
-test("access: owner writes its events, consumers read with their group prefix and write the DLQ", () => {
+test("access: owner writes its events, consumers read with their group prefix and write only their own DLQ", () => {
   const access = resolveAccess(fixture());
   assert.deepEqual(access["svc-ln-loan-lifecycle"].produce_topics, [
     "evt.ln.loan.created.v1",
@@ -264,9 +267,9 @@ test("access: owner writes its events, consumers read with their group prefix an
   assert.deepEqual(access["svc-ln-loan-lifecycle"].produce_topic_prefixes, ["evt.ln.loan."]);
   assert.deepEqual(access["svc-ln-loan-lifecycle"].consume_topics, [], "the owner reads nothing");
   assert.deepEqual(access["svc-ln-loan-lifecycle"].consumer_group_prefixes, []);
-  assert.deepEqual(access["svc-rsk-decisioning"].produce_topics, ["evt.ln.loan.dlq.v1"]);
-  assert.deepEqual(access["svc-rsk-decisioning"].produce_topic_prefixes, [], "a consumer owns no namespace");
-  assert.deepEqual(access["svc-rsk-decisioning"].consume_topics, ["evt.ln.loan.disbursed.v1", "evt.ln.loan.dlq.v1"]);
+  assert.deepEqual(access["svc-rsk-decisioning"].produce_topics, ["evt.rsk.risk.dlq.v1"]);
+  assert.deepEqual(access["svc-rsk-decisioning"].produce_topic_prefixes, ["evt.rsk.risk."], "a consumer-only service still gets its namespace");
+  assert.deepEqual(access["svc-rsk-decisioning"].consume_topics, ["evt.ln.loan.disbursed.v1", "evt.rsk.risk.dlq.v1"]);
   assert.deepEqual(access["svc-rsk-decisioning"].consumer_groups, ["cg.svc-rsk-decisioning.loan-exposure.v1"]);
   assert.deepEqual(access["svc-rsk-decisioning"].consumer_group_prefixes, ["cg.svc-rsk-decisioning."]);
   const json = JSON.parse(renderClientAccessJson(fixture()));
@@ -276,7 +279,7 @@ test("access: owner writes its events, consumers read with their group prefix an
 
 test("Strimzi KafkaTopic manifests carry catalog settings and the cluster label", () => {
   const docs = YAML.parseAllDocuments(renderStrimziTopics(fixture())).map((d) => d.toJS());
-  assert.equal(docs.length, 4);
+  assert.equal(docs.length, 5, "3 events, the loan DLQ and the consumer's own DLQ");
   const created = docs.find((d) => d.metadata.name === "evt.ln.loan.created.v1");
   assert.equal(created.kind, "KafkaTopic");
   assert.equal(created.metadata.namespace, "kafka");
@@ -297,7 +300,11 @@ test("Strimzi KafkaUser uses TLS auth and least-privilege ACLs", () => {
   const ownerWrites = owner.spec.authorization.acls.filter((a) => a.operations.includes("Write")).map((a) => a.resource.name);
   assert.deepEqual(ownerWrites, ["evt.ln.loan.created.v1", "evt.ln.loan.disbursed.v1", "evt.ln.loan.payment-made.v1"]);
   const riskWrites = risk.spec.authorization.acls.filter((a) => a.operations.includes("Write")).map((a) => a.resource.name);
-  assert.deepEqual(riskWrites, ["evt.ln.loan.dlq.v1"], "a consumer may only write the DLQ");
+  assert.deepEqual(riskWrites, ["evt.rsk.risk.dlq.v1"], "a consumer may only write its own namespace DLQ");
+  const writersOfLoanDlq = docs.filter((d) =>
+    d.spec.authorization.acls.some((a) => a.resource.name === "evt.ln.loan.dlq.v1" && a.operations.includes("Write")),
+  );
+  assert.deepEqual(writersOfLoanDlq, [], "nobody else writes the loan DLQ");
   const group = risk.spec.authorization.acls.find((a) => a.resource.type === "group");
   assert.deepEqual(group.resource, { type: "group", name: "cg.svc-rsk-decisioning.", patternType: "prefix" });
   assert.ok(!risk.spec.authorization.acls.some((a) => a.resource.name === "evt.ln.loan.created.v1"), "no read on unconsumed topics");
@@ -307,7 +314,7 @@ test("topics.tsv has eight columns per topic including DLQs", () => {
   const rows = renderTopicsTsv(fixture())
     .split("\n")
     .filter((l) => l && !l.startsWith("#"));
-  assert.equal(rows.length, 4);
+  assert.equal(rows.length, 5);
   for (const row of rows) {
     assert.equal(row.split("\t").length, 8, row);
   }
@@ -331,7 +338,10 @@ test("AsyncAPI cross-check reports channels missing from either side", () => {
       info: { "x-event-namespace": "evt.ln.loan" },
       channels: {
         created: { address: "evt.ln.loan.created.v1", bindings: { kafka: { partitions: 6 } } },
-        disbursed: { address: "evt.ln.loan.disbursed.v1" },
+        disbursed: {
+          address: "evt.ln.loan.disbursed.v1",
+          "x-consumers": [{ serviceId: "svc-rsk-decisioning", consumerGroup: "cg.svc-rsk-decisioning.other.v1", deadLetterTopic: "evt.rsk.risk.dlq.v1" }],
+        },
         dlq: { address: "evt.ln.loan.dlq.v1" },
         restructured: { address: "evt.ln.loan.restructured.v1" },
       },
@@ -340,6 +350,7 @@ test("AsyncAPI cross-check reports channels missing from either side", () => {
     const errors = crossCheckAsyncApi(fixture(), dir);
     assert.ok(errors.some((e) => e.includes("evt.ln.loan.created.v1: partitions 3 in catalog, 6 in contract")), errors.join("\n"));
     assert.ok(errors.some((e) => e.includes("evt.ln.loan.payment-made.v1: no channel")), errors.join("\n"));
+    assert.ok(errors.some((e) => e.includes("evt.ln.loan.disbursed.v1: x-consumers")), errors.join("\n"));
     assert.ok(errors.some((e) => e.includes("evt.ln.loan.restructured.v1: channel in svc-ln-loan-lifecycle.yaml but not in the catalog")));
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

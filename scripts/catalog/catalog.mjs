@@ -134,6 +134,8 @@ export function validateCatalog(catalog, manifest) {
     }
     if (!manifest.has(serviceId)) {
       err(`services.${serviceId}: not in the bootstrap manifest`);
+    } else if (svc?.eventNamespace !== manifest.get(serviceId).event_namespace) {
+      err(`services.${serviceId}.eventNamespace must be ${manifest.get(serviceId).event_namespace} (bootstrap manifest)`);
     }
     if (!K8S_NAME_PATTERN.test(svc?.k8sNamespace ?? "")) {
       err(`services.${serviceId}.k8sNamespace must be a Kubernetes name`);
@@ -289,17 +291,13 @@ export function validateCatalog(catalog, manifest) {
         }
       }
       if (c?.dlq !== undefined) {
-        // The DLQ a consumer writes on give-up: the source namespace DLQ (default)
-        // or the DLQ of the consumer's own manifest namespace.
+        // DLQs are consumer-owned (ADR-019): a consumer dead-letters into the DLQ of
+        // its own namespace, never into the source topic's namespace.
         const majors = [...new Set(ctopics.map((n) => n.slice(n.lastIndexOf(".v") + 2)))];
-        const ownNs = manifest.get(c?.service)?.event_namespace;
-        if (majors.length !== 1) {
-          err(`${cwhere}: an explicit dlq needs consumed topics of a single major version`);
-        } else {
-          const allowed = [dlqName(ns.namespace, majors[0]), ...(ownNs ? [dlqName(ownNs, majors[0])] : [])];
-          if (!allowed.includes(c.dlq)) {
-            err(`${cwhere}: dlq ${c.dlq} must be one of ${allowed.join(", ")}`);
-          }
+        const ownNs = services[c?.service]?.eventNamespace;
+        const allowed = ownNs ? majors.map((m) => dlqName(ownNs, m)) : [];
+        if (majors.length !== 1 || !allowed.includes(c.dlq)) {
+          err(`${cwhere}: dlq ${c.dlq} is outside its own namespace; consumer-owned DLQs only (expected ${allowed.join(", ") || "<own namespace>.dlq.v<major>"})`);
         }
       }
     }
@@ -378,7 +376,7 @@ export function resolveTopics(catalog) {
         producers: [ns.owner],
         consumers: consumers
           .filter((c) => c.topics.includes(name))
-          .map((c) => ({ service: c.service, group: c.group, dlq: consumerDlq(ns, c, t.major) }))
+          .map((c) => ({ service: c.service, group: c.group, dlq: consumerDlq(catalog, c, t.major) }))
           .sort((a, b) => a.service.localeCompare(b.service)),
         consumersStatus: ns.consumersStatus,
       });
@@ -426,16 +424,16 @@ export function resolveTopics(catalog) {
   return out;
 }
 
-/** DLQ a consumer writes for a consumed topic of the given major version. */
-export function consumerDlq(ns, consumer, major) {
-  return consumer.dlq ?? dlqName(ns.namespace, major);
+/** DLQ a consumer writes for a consumed topic of the given major version: always its own namespace's (ADR-019). */
+export function consumerDlq(catalog, consumer, major) {
+  return dlqName(catalog.services[consumer.service].eventNamespace, major);
 }
 
 /**
  * Per-service access derived from the resolved topics.
  * - owner: write its event topics (nothing else; it does not read its own events)
  * - consumer: read the consumed topics with its declared groups; write and read
- *   the namespace DLQ (it parks poison messages there and redrives them)
+ *   the DLQ of its own namespace (consumer-owned DLQs, ADR-019)
  */
 export function resolveAccess(catalog) {
   const topics = resolveTopics(catalog);
@@ -462,10 +460,8 @@ export function resolveAccess(catalog) {
       for (const writer of t.producers) {
         entry(writer).produce.add(t.name);
         entry(writer).consume.add(t.name);
-        if (writer === t.owner) {
-          // A consumer's own-namespace DLQ: grantable by the owned-prefix form too.
-          entry(writer).owned.add(`${t.namespace}.`);
-        }
+        // Only the namespace's own service writes its DLQ, so the owned prefix covers it.
+        entry(writer).owned.add(`${t.namespace}.`);
       }
     }
   }
@@ -646,12 +642,12 @@ export function renderMarkdown(catalog) {
     "|---|---|---|---|---|---|---|---|---|",
   ];
   for (const t of topics) {
-    const producers = t.kind === "event" ? t.owner : t.producers.length > 0 ? t.producers.join(", ") : "consumers of the namespace (none yet)";
+    const producers = t.kind === "event" ? t.owner : t.producers.length > 0 ? t.producers.join(", ") : `${t.owner}, once it consumes (consumer-owned DLQ)`;
     const consumers =
       t.kind === "dlq"
         ? t.producers.length > 0
           ? `${t.producers.join(", ")} (redrive)`
-          : "consumers of the namespace (none yet)"
+          : "-"
         : t.consumers.length > 0
           ? t.consumers.map((c) => `${c.service} (\`${c.group}\`, DLQ \`${c.dlq}\`)`).join(", ")
           : `${t.consumersStatus} (none in code)`;
@@ -704,8 +700,12 @@ export function crossCheckAsyncApi(catalog, asyncapiDir) {
       errors.push(`${ns.namespace}: contract declares x-event-namespace ${spec.info["x-event-namespace"]}`);
     }
     const channels = new Map();
+    const declaredConsumers = new Map();
     for (const ch of Object.values(spec?.channels ?? {})) {
       channels.set(ch.address, ch.bindings?.kafka ?? {});
+      if (Array.isArray(ch["x-consumers"])) {
+        declaredConsumers.set(ch.address, ch["x-consumers"]);
+      }
     }
     const expected = resolved.filter((t) => t.namespace === ns.namespace);
     for (const t of expected) {
@@ -727,6 +727,14 @@ export function crossCheckAsyncApi(catalog, asyncapiDir) {
       const policy = cfg["cleanup.policy"];
       if (policy !== undefined && JSON.stringify(policy) !== JSON.stringify([t.cleanupPolicy])) {
         errors.push(`${t.name}: cleanup.policy ${t.cleanupPolicy} in catalog, ${JSON.stringify(policy)} in contract`);
+      }
+      if (declaredConsumers.has(t.name)) {
+        const fmt = (list) => list.map((c) => `${c.service}|${c.group}|${c.dlq}`).sort().join(", ");
+        const contract = fmt(declaredConsumers.get(t.name).map((c) => ({ service: c.serviceId, group: c.consumerGroup, dlq: c.deadLetterTopic })));
+        const catalogSide = fmt(t.consumers);
+        if (contract !== catalogSide) {
+          errors.push(`${t.name}: x-consumers [${contract}] in contract, [${catalogSide}] in catalog`);
+        }
       }
       channels.delete(t.name);
     }
