@@ -105,12 +105,18 @@ Send failures (ADR-021 decision 4):
 
 | Error | Relay behaviour |
 |---|---|
-| Payload errors: `RecordTooLargeException`, `SerializationException`, `InvalidTopicException` | Park the row (recorded with the error class) and continue with the next row |
+| Payload errors: `RecordTooLargeException`, `SerializationException`, `InvalidTopicException` | Park the row (status and error class recorded), count it in `outbox_parked_events_total`, raise an alert, continue with the next row |
 | Anything else (authentication, `TopicAuthorizationException` during an ACL rollout, producer construction, timeouts, unclassified) | Stop the batch without marking any row, retry with backoff; never park automatically, so order is kept |
 
 There is no time-based parking ceiling. Only an operator may park a row that failed for a non-payload reason, with
-the reason recorded. Export two metrics: the age of the oldest pending outbox row (gauge) and a send-failure counter
-tagged by exception class. An alert on the oldest-pending age pages the owning squad.
+the reason recorded. Metrics (Micrometer names, Prometheus names in brackets; common tags `app` = service account and
+`squad` = owning context):
+
+| Metric | Type | Tags | Alert (observability repo) |
+|---|---|---|---|
+| `outbox.oldest.pending.age.seconds` (`outbox_oldest_pending_age_seconds`) | gauge | app, squad | pages the squad above 900 s for 5 min |
+| `outbox.send.failures` (`outbox_send_failures_total`) | counter | app, squad, `exception` (simple class name, no ids) | warning on a sustained failure rate |
+| `outbox.parked.events` (`outbox_parked_events_total`) | counter | app, squad, `exception` | alert on any increase |
 
 ## 3. Consumer
 
