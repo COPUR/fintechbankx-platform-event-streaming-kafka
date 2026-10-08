@@ -73,8 +73,10 @@ All owners publish through their transactional outbox; the relay is the only Kaf
 | `max.in.flight.requests.per.connection` | `<= 5` | Required for idempotence to keep order |
 | `retries` | default (`Integer.MAX_VALUE`), bounded by `delivery.timeout.ms` | |
 | `delivery.timeout.ms` | `30000` (current service value) | The outbox row stays unpublished and is retried on the next relay run |
+| `request.timeout.ms` | `20000` | Kafka refuses to build the producer unless `delivery.timeout.ms >= linger.ms + request.timeout.ms`; with the client default of 30000 the values above fail at startup |
 | `compression.type` | `lz4` (recommended) | Cheaper network and storage; transparent to consumers |
 | `linger.ms` | `5` (recommended) | Small batches without visible latency |
+| Relay send timeout | `35 s` (outbox relay waiting on the send future) | Longer than `delivery.timeout.ms`, so the producer reports the real outcome before the relay gives up; cover the producer construction with a test |
 | `client.id` | the service id | Broker logs and quotas per service |
 | Record key | `aggregateId` | All events of one aggregate land in one partition of a topic |
 | Record value | the envelope JSON | [`asyncapi/common/event-envelope.yaml`](https://github.com/COPUR/fintechbankx-governance-api-contracts-asyncapi-catalog/blob/main/asyncapi/common/event-envelope.yaml) |
@@ -158,7 +160,7 @@ DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<String, String> template) {
 
 | Dependency | Mode | Timeout | Retry | Breaker / fallback |
 |---|---|---|---|---|
-| Producer to Kafka | async via outbox | `delivery.timeout.ms` 30 s per send | relay every 1 s, at-least-once | Outbox absorbs outages; alert on backlog |
+| Producer to Kafka | async via outbox | `delivery.timeout.ms` 30 s per send (`request.timeout.ms` 20 s, relay wait 35 s) | relay every 1 s, at-least-once | Outbox absorbs outages; alert on backlog |
 | Consumer from Kafka | async | `max.poll.interval.ms` | bounded backoff, then DLQ | DLQ; lag alert per `cg.*` group (Kafka Exporter / MSK metrics) |
 
 Drill evidence still to collect: broker loss under load, zone loss, consumer poison message, relay outage. Record
