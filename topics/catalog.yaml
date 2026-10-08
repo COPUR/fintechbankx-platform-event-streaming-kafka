@@ -67,6 +67,10 @@ services:
     eventNamespace: evt.pay.payment
     k8sNamespace: payments
     serviceAccount: payment-initiation-settlement-service
+  svc-pay-bulk-orchestration:
+    eventNamespace: evt.pay.bulk
+    k8sNamespace: payments
+    serviceAccount: payment-bulk-orchestration-service   # confirmed by the service thread
   svc-pay-request-to-pay:
     eventNamespace: evt.pay.rtp
     k8sNamespace: payments
@@ -165,12 +169,33 @@ namespaces:
       publishes all three events to the legacy topic rtp.pay_requests.v1
       without the envelope; that topic is retired after the dual-publish
       steps in docs/architecture/TOPIC_NAMING_MIGRATION.md (see gaps).
+    # No consumers: confirmed by the request-to-pay service thread 2026-10-08.
     consumersStatus: unknown
     consumers: []
     topics:
       - {event: created, major: 1, eventType: Payments.PayRequest.Created.v1}
       - {event: accepted, major: 1, eventType: Payments.PayRequest.Accepted.v1}
       - {event: rejected, major: 1, eventType: Payments.PayRequest.Rejected.v1}
+
+  - namespace: evt.pay.bulk
+    owner: svc-pay-bulk-orchestration
+    aggregate: BulkFile
+    contract: asyncapi/svc-pay-bulk-orchestration.yaml
+    implementation: outbox-relay
+    implementationEvidence: >-
+      Outbox relay in fintechbankx-lendingpayments-payment-orchestration-bulk-orchestration
+      draft PR #13 (lending and payments thread, 2026-10-08). Records keyed
+      by fileId. The PR named the topics evt.pay.bulk.file-<event>.v1; the
+      catalog rule (topic event = eventType event) makes them
+      evt.pay.bulk.<event>.v1, as for evt.pay.rtp. The contract is to be PR'd
+      into the asyncapi catalog by the service thread.
+    # No consumers: confirmed by the service thread 2026-10-08.
+    consumersStatus: unknown
+    consumers: []
+    topics:
+      - {event: accepted, major: 1, eventType: Payments.BulkFile.Accepted.v1}
+      - {event: completed, major: 1, eventType: Payments.BulkFile.Completed.v1}
+      - {event: rejected, major: 1, eventType: Payments.BulkFile.Rejected.v1}
 
   - namespace: evt.cus.customer
     owner: svc-cus-profile-kyc
@@ -295,12 +320,6 @@ gaps:
     reason: >-
       Placeholder. Namespace and runtime identity confirmed (k8s namespace
       payments, service account payment-recurring-mandates-service); topic
-      list pending from the service thread. No publisher in code yet.
-  - service: svc-pay-bulk-orchestration
-    namespace: evt.pay.bulk
-    reason: >-
-      Placeholder. Namespace and runtime identity confirmed (k8s namespace
-      payments, service account payment-bulk-orchestration-service); topic
       list pending from the service thread. No publisher in code yet.
   - service: svc-pay-request-to-pay
     namespace: rtp.pay_requests.v1 (legacy)

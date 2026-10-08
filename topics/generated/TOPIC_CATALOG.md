@@ -29,6 +29,10 @@ Defaults: replication factor 3, min.insync.replicas 2, cleanup.policy delete. Re
 | `evt.pay.rtp.accepted.v1` | event | svc-pay-request-to-pay | `Payments.PayRequest.Accepted.v1` | 3 | 604800000 | `evt.pay.rtp.dlq.v1` | unknown (none in code) | outbox-relay |
 | `evt.pay.rtp.rejected.v1` | event | svc-pay-request-to-pay | `Payments.PayRequest.Rejected.v1` | 3 | 604800000 | `evt.pay.rtp.dlq.v1` | unknown (none in code) | outbox-relay |
 | `evt.pay.rtp.dlq.v1` | dlq | svc-pay-request-to-pay, once it consumes (consumer-owned DLQ) | - | 3 | 1209600000 | - | - | outbox-relay |
+| `evt.pay.bulk.accepted.v1` | event | svc-pay-bulk-orchestration | `Payments.BulkFile.Accepted.v1` | 3 | 604800000 | `evt.pay.bulk.dlq.v1` | unknown (none in code) | outbox-relay |
+| `evt.pay.bulk.completed.v1` | event | svc-pay-bulk-orchestration | `Payments.BulkFile.Completed.v1` | 3 | 604800000 | `evt.pay.bulk.dlq.v1` | unknown (none in code) | outbox-relay |
+| `evt.pay.bulk.rejected.v1` | event | svc-pay-bulk-orchestration | `Payments.BulkFile.Rejected.v1` | 3 | 604800000 | `evt.pay.bulk.dlq.v1` | unknown (none in code) | outbox-relay |
+| `evt.pay.bulk.dlq.v1` | dlq | svc-pay-bulk-orchestration, once it consumes (consumer-owned DLQ) | - | 3 | 1209600000 | - | - | outbox-relay |
 | `evt.cus.customer.created.v1` | event | svc-cus-profile-kyc | `Customer.Customer.Created.v1` | 3 | 604800000 | `evt.cus.customer.dlq.v1` | unknown (none in code) | outbox-relay |
 | `evt.cus.customer.contact-updated.v1` | event | svc-cus-profile-kyc | `Customer.Customer.ContactUpdated.v1` | 3 | 604800000 | `evt.cus.customer.dlq.v1` | unknown (none in code) | outbox-relay |
 | `evt.cus.customer.credit-limit-updated.v1` | event | svc-cus-profile-kyc | `Customer.Customer.CreditLimitUpdated.v1` | 3 | 604800000 | `evt.cus.customer.dlq.v1` | unknown (none in code) | outbox-relay |
@@ -56,7 +60,6 @@ Defaults: replication factor 3, min.insync.replicas 2, cleanup.policy delete. Re
 | Service | Namespace | Reason |
 |---|---|---|
 | svc-pay-recurring-mandates | `evt.pay.mandate` | Placeholder. Namespace and runtime identity confirmed (k8s namespace payments, service account payment-recurring-mandates-service); topic list pending from the service thread. No publisher in code yet. |
-| svc-pay-bulk-orchestration | `evt.pay.bulk` | Placeholder. Namespace and runtime identity confirmed (k8s namespace payments, service account payment-bulk-orchestration-service); topic list pending from the service thread. No publisher in code yet. |
 | svc-pay-request-to-pay | `rtp.pay_requests.v1 (legacy)` | Legacy topic still written by KafkaPayRequestNotificationAdapter on main. To be retired once evt.pay.rtp.* is published through the outbox and the dual-publish criteria in TOPIC_NAMING_MIGRATION.md are met; kept under CREATE_LEGACY_TOPICS until then. |
 | unassigned | `unassigned` | Monolith Debezium outbox topics openfinance.provider.payment.v1, openfinance.provider.account-data.v1 (compacted) and the command topic openfinance.command.payment-execution.v1 with its retry/dlt topics have no owning fintechbankx service or contract yet. Needs an owner and an evt.of.* namespace before they move here. (openfinance.provider.consent.v1 is covered by evt.of.consent.) |
 | svc-of-personal-financial-data | `evt.of.account` | No events published. Only its consumer DLQ evt.of.account.dlq.v1 is provisioned (consent projection). |

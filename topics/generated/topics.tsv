@@ -23,6 +23,10 @@ evt.pay.rtp.created.v1	event	3	3	2	delete	604800000	1048576
 evt.pay.rtp.accepted.v1	event	3	3	2	delete	604800000	1048576
 evt.pay.rtp.rejected.v1	event	3	3	2	delete	604800000	1048576
 evt.pay.rtp.dlq.v1	dlq	3	3	2	delete	1209600000	1048576
+evt.pay.bulk.accepted.v1	event	3	3	2	delete	604800000	1048576
+evt.pay.bulk.completed.v1	event	3	3	2	delete	604800000	1048576
+evt.pay.bulk.rejected.v1	event	3	3	2	delete	604800000	1048576
+evt.pay.bulk.dlq.v1	dlq	3	3	2	delete	1209600000	1048576
 evt.cus.customer.created.v1	event	3	3	2	delete	604800000	1048576
 evt.cus.customer.contact-updated.v1	event	3	3	2	delete	604800000	1048576
 evt.cus.customer.credit-limit-updated.v1	event	3	3	2	delete	604800000	1048576

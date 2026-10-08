@@ -514,6 +514,50 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
+  name: svc-pay-bulk-orchestration
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: fintechbankx
+    app.kubernetes.io/part-of: fintechbankx-event-streaming
+    app.kubernetes.io/managed-by: topic-catalog
+    fintechbankx.io/service-id: svc-pay-bulk-orchestration
+    fintechbankx.io/workload-namespace: payments
+  annotations:
+    fintechbankx.io/service-account: payment-bulk-orchestration-service
+spec:
+  authentication:
+    type: tls
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: evt.pay.bulk.accepted.v1
+          patternType: literal
+        operations:
+          - Write
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.pay.bulk.completed.v1
+          patternType: literal
+        operations:
+          - Write
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.pay.bulk.rejected.v1
+          patternType: literal
+        operations:
+          - Write
+          - Describe
+        host: "*"
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
   name: svc-pay-initiation-settlement
   namespace: kafka
   labels:

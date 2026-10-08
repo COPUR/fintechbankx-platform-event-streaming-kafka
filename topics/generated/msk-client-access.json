@@ -158,6 +158,21 @@
         "cg.svc-of-personal-financial-data."
       ]
     },
+    "svc-pay-bulk-orchestration": {
+      "kubernetes_namespace": "payments",
+      "service_account": "payment-bulk-orchestration-service",
+      "produce_topics": [
+        "evt.pay.bulk.accepted.v1",
+        "evt.pay.bulk.completed.v1",
+        "evt.pay.bulk.rejected.v1"
+      ],
+      "produce_topic_prefixes": [
+        "evt.pay.bulk."
+      ],
+      "consume_topics": [],
+      "consumer_groups": [],
+      "consumer_group_prefixes": []
+    },
     "svc-pay-initiation-settlement": {
       "kubernetes_namespace": "payments",
       "service_account": "payment-initiation-settlement-service",
