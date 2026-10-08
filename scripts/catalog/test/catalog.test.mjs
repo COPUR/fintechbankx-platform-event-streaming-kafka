@@ -221,8 +221,11 @@ test("access: owner writes its events, consumers read with their group prefix an
     "evt.ln.loan.disbursed.v1",
     "evt.ln.loan.payment-made.v1",
   ]);
-  assert.deepEqual(access["svc-ln-loan-lifecycle"].consume_topics, ["evt.ln.loan.dlq.v1"]);
+  assert.deepEqual(access["svc-ln-loan-lifecycle"].produce_topic_prefixes, ["evt.ln.loan."]);
+  assert.deepEqual(access["svc-ln-loan-lifecycle"].consume_topics, [], "the owner reads nothing");
+  assert.deepEqual(access["svc-ln-loan-lifecycle"].consumer_group_prefixes, []);
   assert.deepEqual(access["svc-rsk-decisioning"].produce_topics, ["evt.ln.loan.dlq.v1"]);
+  assert.deepEqual(access["svc-rsk-decisioning"].produce_topic_prefixes, [], "a consumer owns no namespace");
   assert.deepEqual(access["svc-rsk-decisioning"].consume_topics, ["evt.ln.loan.disbursed.v1", "evt.ln.loan.dlq.v1"]);
   assert.deepEqual(access["svc-rsk-decisioning"].consumer_groups, ["cg.svc-rsk-decisioning.loan-exposure.v1"]);
   assert.deepEqual(access["svc-rsk-decisioning"].consumer_group_prefixes, ["cg.svc-rsk-decisioning."]);
@@ -250,6 +253,7 @@ test("Strimzi KafkaUser uses TLS auth and least-privilege ACLs", () => {
   const risk = docs.find((d) => d.metadata.name === "svc-rsk-decisioning");
   assert.equal(owner.spec.authentication.type, "tls");
   assert.equal(owner.spec.authorization.type, "simple");
+  assert.ok(!owner.spec.authorization.acls.some((a) => a.operations.includes("Read")), "a pure producer gets no Read");
   const ownerWrites = owner.spec.authorization.acls.filter((a) => a.operations.includes("Write")).map((a) => a.resource.name);
   assert.deepEqual(ownerWrites, ["evt.ln.loan.created.v1", "evt.ln.loan.disbursed.v1", "evt.ln.loan.payment-made.v1"]);
   const riskWrites = risk.spec.authorization.acls.filter((a) => a.operations.includes("Write")).map((a) => a.resource.name);

@@ -13,13 +13,12 @@
         "evt.cus.customer.credit-reserved.v1",
         "evt.cus.customer.credit-score-updated.v1"
       ],
-      "consume_topics": [
-        "evt.cus.customer.dlq.v1"
+      "produce_topic_prefixes": [
+        "evt.cus.customer."
       ],
+      "consume_topics": [],
       "consumer_groups": [],
-      "consumer_group_prefixes": [
-        "cg.svc-cus-profile-kyc."
-      ]
+      "consumer_group_prefixes": []
     },
     "svc-ln-loan-lifecycle": {
       "kubernetes_namespace": "lending",
@@ -33,13 +32,12 @@
         "evt.ln.loan.payment-made.v1",
         "evt.ln.loan.rejected.v1"
       ],
-      "consume_topics": [
-        "evt.ln.loan.dlq.v1"
+      "produce_topic_prefixes": [
+        "evt.ln.loan."
       ],
+      "consume_topics": [],
       "consumer_groups": [],
-      "consumer_group_prefixes": [
-        "cg.svc-ln-loan-lifecycle."
-      ]
+      "consumer_group_prefixes": []
     },
     "svc-pay-initiation-settlement": {
       "kubernetes_namespace": "payments",
@@ -55,13 +53,12 @@
         "evt.pay.payment.processing-started.v1",
         "evt.pay.payment.refunded.v1"
       ],
-      "consume_topics": [
-        "evt.pay.payment.dlq.v1"
+      "produce_topic_prefixes": [
+        "evt.pay.payment."
       ],
+      "consume_topics": [],
       "consumer_groups": [],
-      "consumer_group_prefixes": [
-        "cg.svc-pay-initiation-settlement."
-      ]
+      "consumer_group_prefixes": []
     },
     "svc-pay-request-to-pay": {
       "kubernetes_namespace": "payments",
@@ -71,13 +68,12 @@
         "evt.pay.rtp.created.v1",
         "evt.pay.rtp.rejected.v1"
       ],
-      "consume_topics": [
-        "evt.pay.rtp.dlq.v1"
+      "produce_topic_prefixes": [
+        "evt.pay.rtp."
       ],
+      "consume_topics": [],
       "consumer_groups": [],
-      "consumer_group_prefixes": [
-        "cg.svc-pay-request-to-pay."
-      ]
+      "consumer_group_prefixes": []
     }
   }
 }

@@ -367,15 +367,16 @@ export function resolveTopics(catalog) {
 
 /**
  * Per-service access derived from the resolved topics.
- * - owner: write its event topics; read its DLQs (diagnosis)
- * - consumer: read the consumed topics; write and read the namespace DLQ (redrive)
+ * - owner: write its event topics (nothing else; it does not read its own events)
+ * - consumer: read the consumed topics with its declared groups; write and read
+ *   the namespace DLQ (it parks poison messages there and redrives them)
  */
 export function resolveAccess(catalog) {
   const topics = resolveTopics(catalog);
   const access = new Map();
   const entry = (serviceId) => {
     if (!access.has(serviceId)) {
-      access.set(serviceId, { produce: new Set(), consume: new Set(), groups: new Set() });
+      access.set(serviceId, { produce: new Set(), consume: new Set(), groups: new Set(), owned: new Set() });
     }
     return access.get(serviceId);
   };
@@ -385,13 +386,13 @@ export function resolveAccess(catalog) {
   for (const t of topics) {
     if (t.kind === "event") {
       entry(t.owner).produce.add(t.name);
+      entry(t.owner).owned.add(`${t.namespace}.`);
       for (const c of t.consumers) {
         const e = entry(c.service);
         e.consume.add(t.name);
         e.groups.add(c.group);
       }
     } else {
-      entry(t.owner).consume.add(t.name);
       for (const writer of t.producers) {
         entry(writer).produce.add(t.name);
         entry(writer).consume.add(t.name);
@@ -405,10 +406,13 @@ export function resolveAccess(catalog) {
     result[serviceId] = {
       kubernetes_namespace: svc.k8sNamespace ?? null,
       service_account: svc.serviceAccount ?? null,
+      // Exact topics. produce_topic_prefixes is the same grant as evt.<ctx>.<aggregate>.
+      // prefixes for modules that grant per owned namespace.
       produce_topics: sortedUnique([...e.produce]),
+      produce_topic_prefixes: sortedUnique([...e.owned]),
       consume_topics: sortedUnique([...e.consume]),
       consumer_groups: sortedUnique([...e.groups]),
-      // Any service that reads needs a group; the prefix covers future purposes.
+      // Strimzi ACLs grant the cg.<service-id>. prefix; IAM policies can use the explicit groups.
       consumer_group_prefixes: e.consume.size > 0 ? [`cg.${serviceId}.`] : [],
     };
   }
@@ -575,7 +579,9 @@ export function renderMarkdown(catalog) {
     const producers = t.kind === "event" ? t.owner : t.producers.length > 0 ? t.producers.join(", ") : "consumers of the namespace (none yet)";
     const consumers =
       t.kind === "dlq"
-        ? `owner (read)${t.producers.length > 0 ? ", " + t.producers.join(", ") : ""}`
+        ? t.producers.length > 0
+          ? `${t.producers.join(", ")} (redrive)`
+          : "consumers of the namespace (none yet)"
         : t.consumers.length > 0
           ? t.consumers.map((c) => `${c.service} (\`${c.group}\`)`).join(", ")
           : `${t.consumersStatus} (none in code)`;

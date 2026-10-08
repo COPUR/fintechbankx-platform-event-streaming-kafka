@@ -1,0 +1,31 @@
+# Optional Cruise Control for partition rebalancing (for example after
+# adding brokers). Enable with `components: [optional/cruise-control]` in
+# deploy/strimzi/kustomization.yaml. Rebalances run only when a
+# KafkaRebalance is approved (annotation strimzi.io/rebalance=approve).
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources:
+  - kafka-rebalance.yaml
+patches:
+  - target:
+      group: kafka.strimzi.io
+      kind: Kafka
+      name: fintechbankx
+    patch: |-
+      - op: add
+        path: /spec/cruiseControl
+        value:
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              memory: 512Mi
+          template:
+            pod:
+              metadata:
+                annotations:
+                  sidecar.istio.io/inject: "false"
+          brokerCapacity:
+            inboundNetwork: 50000KiB/s
+            outboundNetwork: 50000KiB/s

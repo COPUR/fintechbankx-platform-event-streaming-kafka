@@ -39,7 +39,7 @@ node scripts/catalog/generate.mjs --check --asyncapi <asyncapi-catalog-checkout>
 - `cleanup.policy` is `delete` (events are immutable facts); `min.insync.replicas` is lower than the replication
   factor (defaults 2 and 3).
 - A consumer needs a code or config reference (`evidence`), a consumer group `cg.<service-id>.<purpose>.v<major>` and
-  the exact topics it reads. Consumers write the namespace DLQ; the owner may read its DLQs.
+  the exact topics it reads. Consumers write and read (redrive) the namespace DLQ; the owner only writes its events.
 
 ## Bootstrap manifest copy
 

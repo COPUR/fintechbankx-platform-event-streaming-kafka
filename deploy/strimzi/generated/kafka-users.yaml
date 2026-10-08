@@ -66,22 +66,6 @@ spec:
           - Write
           - Describe
         host: "*"
-      - resource:
-          type: topic
-          name: evt.cus.customer.dlq.v1
-          patternType: literal
-        operations:
-          - Read
-          - Describe
-        host: "*"
-      - resource:
-          type: group
-          name: cg.svc-cus-profile-kyc.
-          patternType: prefix
-        operations:
-          - Read
-          - Describe
-        host: "*"
 ---
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
@@ -156,22 +140,6 @@ spec:
           patternType: literal
         operations:
           - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.ln.loan.dlq.v1
-          patternType: literal
-        operations:
-          - Read
-          - Describe
-        host: "*"
-      - resource:
-          type: group
-          name: cg.svc-ln-loan-lifecycle.
-          patternType: prefix
-        operations:
-          - Read
           - Describe
         host: "*"
 ---
@@ -266,22 +234,6 @@ spec:
           - Write
           - Describe
         host: "*"
-      - resource:
-          type: topic
-          name: evt.pay.payment.dlq.v1
-          patternType: literal
-        operations:
-          - Read
-          - Describe
-        host: "*"
-      - resource:
-          type: group
-          name: cg.svc-pay-initiation-settlement.
-          patternType: prefix
-        operations:
-          - Read
-          - Describe
-        host: "*"
 ---
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
@@ -324,21 +276,5 @@ spec:
           patternType: literal
         operations:
           - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.pay.rtp.dlq.v1
-          patternType: literal
-        operations:
-          - Read
-          - Describe
-        host: "*"
-      - resource:
-          type: group
-          name: cg.svc-pay-request-to-pay.
-          patternType: prefix
-        operations:
-          - Read
           - Describe
         host: "*"

@@ -1,0 +1,19 @@
+# Proposal-only rebalance: Cruise Control computes a plan; nothing moves until
+# an operator reviews it and annotates strimzi.io/rebalance=approve.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaRebalance
+metadata:
+  name: fintechbankx-full
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: fintechbankx
+spec:
+  mode: full
+  goals:
+    - RackAwareGoal
+    - ReplicaCapacityGoal
+    - DiskCapacityGoal
+    - NetworkInboundCapacityGoal
+    - NetworkOutboundCapacityGoal
+    - ReplicaDistributionGoal
+    - LeaderReplicaDistributionGoal

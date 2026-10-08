@@ -14,7 +14,7 @@ Defaults: replication factor 3, min.insync.replicas 2, cleanup.policy delete. Re
 | `evt.ln.loan.cancelled.v1` | event | svc-ln-loan-lifecycle | `Lending.Loan.Cancelled.v1` | 3 | 604800000 | `evt.ln.loan.dlq.v1` | unknown (none in code) | outbox-relay |
 | `evt.ln.loan.payment-made.v1` | event | svc-ln-loan-lifecycle | `Lending.Loan.PaymentMade.v1` | 3 | 604800000 | `evt.ln.loan.dlq.v1` | unknown (none in code) | outbox-relay |
 | `evt.ln.loan.fully-paid.v1` | event | svc-ln-loan-lifecycle | `Lending.Loan.FullyPaid.v1` | 3 | 604800000 | `evt.ln.loan.dlq.v1` | unknown (none in code) | outbox-relay |
-| `evt.ln.loan.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | owner (read) | outbox-relay |
+| `evt.ln.loan.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | consumers of the namespace (none yet) | outbox-relay |
 | `evt.pay.payment.created.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.Created.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | unknown (none in code) | outbox-relay |
 | `evt.pay.payment.processing-started.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.ProcessingStarted.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | unknown (none in code) | outbox-relay |
 | `evt.pay.payment.completed.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.Completed.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | unknown (none in code) | outbox-relay |
@@ -24,18 +24,18 @@ Defaults: replication factor 3, min.insync.replicas 2, cleanup.policy delete. Re
 | `evt.pay.payment.loan-payment-created.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.LoanPaymentCreated.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | unknown (none in code) | outbox-relay |
 | `evt.pay.payment.loan-payment-completed.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.LoanPaymentCompleted.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | unknown (none in code) | outbox-relay |
 | `evt.pay.payment.loan-payment-failed.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.LoanPaymentFailed.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | unknown (none in code) | outbox-relay |
-| `evt.pay.payment.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | owner (read) | outbox-relay |
+| `evt.pay.payment.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | consumers of the namespace (none yet) | outbox-relay |
 | `evt.pay.rtp.created.v1` | event | svc-pay-request-to-pay | `Payments.PayRequest.Created.v1` | 3 | 604800000 | `evt.pay.rtp.dlq.v1` | unknown (none in code) | legacy-topic |
 | `evt.pay.rtp.accepted.v1` | event | svc-pay-request-to-pay | `Payments.PayRequest.Accepted.v1` | 3 | 604800000 | `evt.pay.rtp.dlq.v1` | unknown (none in code) | legacy-topic |
 | `evt.pay.rtp.rejected.v1` | event | svc-pay-request-to-pay | `Payments.PayRequest.Rejected.v1` | 3 | 604800000 | `evt.pay.rtp.dlq.v1` | unknown (none in code) | legacy-topic |
-| `evt.pay.rtp.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | owner (read) | legacy-topic |
+| `evt.pay.rtp.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | consumers of the namespace (none yet) | legacy-topic |
 | `evt.cus.customer.created.v1` | event | svc-cus-profile-kyc | `Customer.Customer.Created.v1` | 3 | 604800000 | `evt.cus.customer.dlq.v1` | unknown (none in code) | outbox-relay |
 | `evt.cus.customer.contact-updated.v1` | event | svc-cus-profile-kyc | `Customer.Customer.ContactUpdated.v1` | 3 | 604800000 | `evt.cus.customer.dlq.v1` | unknown (none in code) | outbox-relay |
 | `evt.cus.customer.credit-limit-updated.v1` | event | svc-cus-profile-kyc | `Customer.Customer.CreditLimitUpdated.v1` | 3 | 604800000 | `evt.cus.customer.dlq.v1` | unknown (none in code) | outbox-relay |
 | `evt.cus.customer.credit-reserved.v1` | event | svc-cus-profile-kyc | `Customer.Customer.CreditReserved.v1` | 3 | 604800000 | `evt.cus.customer.dlq.v1` | unknown (none in code) | outbox-relay |
 | `evt.cus.customer.credit-released.v1` | event | svc-cus-profile-kyc | `Customer.Customer.CreditReleased.v1` | 3 | 604800000 | `evt.cus.customer.dlq.v1` | unknown (none in code) | outbox-relay |
 | `evt.cus.customer.credit-score-updated.v1` | event | svc-cus-profile-kyc | `Customer.Customer.CreditScoreUpdated.v1` | 3 | 604800000 | `evt.cus.customer.dlq.v1` | unknown (none in code) | outbox-relay |
-| `evt.cus.customer.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | owner (read) | outbox-relay |
+| `evt.cus.customer.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | consumers of the namespace (none yet) | outbox-relay |
 
 ## Gaps (not provisioned)
 
