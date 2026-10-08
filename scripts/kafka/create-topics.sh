@@ -1,35 +1,40 @@
 #!/usr/bin/env bash
 #
-# FinTechBankX event platform (svc-evt-streaming) - Kafka topic provisioning.
+# FinTechBankX event platform (svc-evt-streaming) - Kafka topic provisioning
+# for clusters without the Strimzi Topic Operator (Amazon MSK, local Kafka).
 #
-# Creates the standard topics from NAMING_CONVENTION_DDD_EDA_BUSINESS_CONTEXT.md:
+# The topic list is NOT maintained here. It is read from
+# topics/generated/topics.tsv, which scripts/catalog/generate.mjs renders from
+# topics/catalog.yaml (the single source of truth, see topics/README.md):
 #   event topic : evt.<ctx>.<aggregate>.<event>.v<major>
 #   dead letter : evt.<ctx>.<aggregate>.dlq.v<major>   (one per aggregate namespace)
-#
-# The topic list mirrors the event inventory in
-# docs/architecture/TOPIC_NAMING_MIGRATION.md. Add a topic here only when the
-# owning service publishes it (domain event class or README published_events)
-# and its AsyncAPI contract exists in the asyncapi catalog.
+# To add a topic, change topics/catalog.yaml and run `npm run catalog:generate`.
 #
 # Legacy dotted topics (customer.created, loan.disbursed, ...) are created only
 # with CREATE_LEGACY_TOPICS=true. Do not remove them before the dual-publish
 # plan in docs/architecture/TOPIC_NAMING_MIGRATION.md is complete.
 #
-# Environment (all optional):
+# Environment (all optional). Per-topic values come from the catalog; the
+# overrides below, when set, apply to every catalog topic (local clusters).
+#   TOPICS_FILE             catalog topic list                    (default <repo>/topics/generated/topics.tsv)
 #   KAFKA_BROKER            bootstrap servers                     (default kafka:9092)
 #   KAFKA_COMMAND_CONFIG    client properties file for TLS/SASL   (default: none)
-#   PARTITIONS              partitions per event topic            (default 3)
-#   DLQ_PARTITIONS          partitions per DLQ topic              (default PARTITIONS)
-#   REPLICATION_FACTOR      replication factor                    (default 3; use 1 locally)
-#   MIN_INSYNC_REPLICAS     min.insync.replicas                   (default 2; use 1 locally)
-#   RETENTION_MS            event topic retention                 (default 604800000, 7 days)
-#   DLQ_RETENTION_MS        DLQ retention                         (default 1209600000, 14 days)
-#   MAX_MESSAGE_BYTES       max.message.bytes                     (default 1048576)
+#   PARTITIONS              override partitions of event topics   (default: catalog)
+#   DLQ_PARTITIONS          override partitions of DLQ topics     (default: catalog)
+#   REPLICATION_FACTOR      override replication factor           (default: catalog, 3; use 1 locally)
+#   MIN_INSYNC_REPLICAS     override min.insync.replicas          (default: catalog, 2; use 1 locally)
+#   RETENTION_MS            override event topic retention        (default: catalog)
+#   DLQ_RETENTION_MS        override DLQ retention                (default: catalog)
+#   MAX_MESSAGE_BYTES       override max.message.bytes            (default: catalog)
 #   CREATE_LEGACY_TOPICS    also create legacy dotted topics      (default false)
 #   KAFKA_TOPICS_BIN        kafka-topics CLI name or path         (default kafka-topics)
 #   KAFKA_API_VERSIONS_BIN  broker readiness CLI                  (default kafka-broker-api-versions)
 #   WAIT_TIMEOUT_SECONDS    max wait for the broker               (default 300)
 #   DRY_RUN                 print commands, do not call Kafka     (default false)
+#
+# Amazon MSK (IAM auth) example; the properties file is in docs/guides/SERVICE_CLIENT_CONFIGURATION.md:
+#   KAFKA_BROKER=<msk-bootstrap-brokers-sasl-iam> KAFKA_COMMAND_CONFIG=msk-iam.properties \
+#     scripts/kafka/create-topics.sh
 #
 # Local single-broker example:
 #   REPLICATION_FACTOR=1 MIN_INSYNC_REPLICAS=1 KAFKA_BROKER=localhost:9092 \
@@ -40,15 +45,17 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TOPICS_FILE="${TOPICS_FILE:-${SCRIPT_DIR}/../../topics/generated/topics.tsv}"
 KAFKA_BROKER="${KAFKA_BROKER:-kafka:9092}"
 KAFKA_COMMAND_CONFIG="${KAFKA_COMMAND_CONFIG:-}"
-PARTITIONS="${PARTITIONS:-3}"
-DLQ_PARTITIONS="${DLQ_PARTITIONS:-${PARTITIONS}}"
-REPLICATION_FACTOR="${REPLICATION_FACTOR:-3}"
-MIN_INSYNC_REPLICAS="${MIN_INSYNC_REPLICAS:-2}"
-RETENTION_MS="${RETENTION_MS:-604800000}"
-DLQ_RETENTION_MS="${DLQ_RETENTION_MS:-1209600000}"
-MAX_MESSAGE_BYTES="${MAX_MESSAGE_BYTES:-1048576}"
+PARTITIONS="${PARTITIONS:-}"
+DLQ_PARTITIONS="${DLQ_PARTITIONS:-}"
+REPLICATION_FACTOR="${REPLICATION_FACTOR:-}"
+MIN_INSYNC_REPLICAS="${MIN_INSYNC_REPLICAS:-}"
+RETENTION_MS="${RETENTION_MS:-}"
+DLQ_RETENTION_MS="${DLQ_RETENTION_MS:-}"
+MAX_MESSAGE_BYTES="${MAX_MESSAGE_BYTES:-}"
 CREATE_LEGACY_TOPICS="${CREATE_LEGACY_TOPICS:-false}"
 KAFKA_TOPICS_BIN="${KAFKA_TOPICS_BIN:-kafka-topics}"
 KAFKA_API_VERSIONS_BIN="${KAFKA_API_VERSIONS_BIN:-kafka-broker-api-versions}"
@@ -57,45 +64,9 @@ DRY_RUN="${DRY_RUN:-false}"
 
 # Retention for legacy audit/compliance aggregate streams (1 year), as before.
 readonly LEGACY_LONG_RETENTION_MS=31536000000
-
-# ---------------------------------------------------------------------------
-# Standard event topics, grouped by publishing service and event namespace.
-# Source of each entry: see docs/architecture/TOPIC_NAMING_MIGRATION.md.
-# ---------------------------------------------------------------------------
-readonly STANDARD_EVENT_TOPICS=(
-  # svc-ln-loan-lifecycle, namespace evt.ln.loan (aggregate Loan)
-  evt.ln.loan.created.v1
-  evt.ln.loan.approved.v1
-  evt.ln.loan.rejected.v1
-  evt.ln.loan.disbursed.v1
-  evt.ln.loan.cancelled.v1
-  evt.ln.loan.payment-made.v1
-  evt.ln.loan.fully-paid.v1
-
-  # svc-pay-initiation-settlement, namespace evt.pay.payment (aggregate Payment)
-  evt.pay.payment.created.v1
-  evt.pay.payment.processing-started.v1
-  evt.pay.payment.completed.v1
-  evt.pay.payment.failed.v1
-  evt.pay.payment.cancelled.v1
-  evt.pay.payment.refunded.v1
-  evt.pay.payment.loan-payment-created.v1
-  evt.pay.payment.loan-payment-completed.v1
-  evt.pay.payment.loan-payment-failed.v1
-
-  # svc-pay-request-to-pay, namespace evt.pay.rtp (aggregate PayRequest)
-  evt.pay.rtp.created.v1
-  evt.pay.rtp.accepted.v1
-  evt.pay.rtp.rejected.v1
-
-  # svc-cus-profile-kyc, namespace evt.cus.customer (aggregate Customer)
-  evt.cus.customer.created.v1
-  evt.cus.customer.contact-updated.v1
-  evt.cus.customer.credit-limit-updated.v1
-  evt.cus.customer.credit-reserved.v1
-  evt.cus.customer.credit-released.v1
-  evt.cus.customer.credit-score-updated.v1
-)
+# Defaults for legacy topics only (they are not in the catalog).
+readonly LEGACY_PARTITIONS=3
+readonly LEGACY_RETENTION_MS=604800000
 
 readonly TOPIC_PATTERN='^evt\.[a-z]+\.[a-z0-9]+(-[a-z0-9]+)*\.[a-z0-9]+(-[a-z0-9]+)*\.v[0-9]+$'
 
@@ -108,31 +79,62 @@ is_bool() { [[ "$1" == "true" || "$1" == "false" ]]; }
 validate_settings() {
   local name
   for name in PARTITIONS DLQ_PARTITIONS REPLICATION_FACTOR MIN_INSYNC_REPLICAS \
-              RETENTION_MS DLQ_RETENTION_MS MAX_MESSAGE_BYTES WAIT_TIMEOUT_SECONDS; do
-    is_uint "${!name}" || die "${name} must be a non-negative integer (got '${!name}')"
+              RETENTION_MS DLQ_RETENTION_MS MAX_MESSAGE_BYTES; do
+    [[ -z "${!name}" ]] || is_uint "${!name}" || die "${name} must be a non-negative integer (got '${!name}')"
   done
+  is_uint "${WAIT_TIMEOUT_SECONDS}" || die "WAIT_TIMEOUT_SECONDS must be a non-negative integer (got '${WAIT_TIMEOUT_SECONDS}')"
   for name in PARTITIONS DLQ_PARTITIONS REPLICATION_FACTOR MIN_INSYNC_REPLICAS; do
-    (( ${!name} >= 1 )) || die "${name} must be >= 1"
+    [[ -z "${!name}" ]] || (( ${!name} >= 1 )) || die "${name} must be >= 1"
   done
   for name in CREATE_LEGACY_TOPICS DRY_RUN; do
     is_bool "${!name}" || die "${name} must be 'true' or 'false' (got '${!name}')"
   done
-  (( MIN_INSYNC_REPLICAS <= REPLICATION_FACTOR )) \
-    || die "MIN_INSYNC_REPLICAS (${MIN_INSYNC_REPLICAS}) cannot exceed REPLICATION_FACTOR (${REPLICATION_FACTOR})"
-  if (( REPLICATION_FACTOR < 3 )); then
-    log "WARNING: REPLICATION_FACTOR=${REPLICATION_FACTOR} is for local use only; prod-like clusters use 3 with MIN_INSYNC_REPLICAS=2."
-  fi
   if [[ -n "${KAFKA_COMMAND_CONFIG}" && "${DRY_RUN}" == "false" && ! -r "${KAFKA_COMMAND_CONFIG}" ]]; then
     die "KAFKA_COMMAND_CONFIG is set but not readable: ${KAFKA_COMMAND_CONFIG}"
   fi
+  if [[ -n "${REPLICATION_FACTOR}" ]] && (( REPLICATION_FACTOR < 3 )); then
+    log "WARNING: REPLICATION_FACTOR=${REPLICATION_FACTOR} is for local use only; shared clusters use 3 with MIN_INSYNC_REPLICAS=2."
+  fi
+  [[ -r "${TOPICS_FILE}" ]] || die "TOPICS_FILE not readable: ${TOPICS_FILE} (run npm run catalog:generate)"
 }
 
-validate_topic_names() {
-  local topic
-  for topic in "${STANDARD_EVENT_TOPICS[@]}"; do
-    [[ "${topic}" =~ ${TOPIC_PATTERN} ]] || die "topic '${topic}' does not match evt.<ctx>.<aggregate>.<event>.v<major>"
-    [[ "${topic}" != *.dlq.v* ]] || die "topic '${topic}': DLQs are derived, do not list them"
-  done
+# Catalog rows after validation and overrides:
+# name kind partitions rf min_isr cleanup retention max_bytes (space separated).
+CATALOG_ROWS=()
+
+load_catalog() {
+  local line name kind partitions rf min_isr cleanup retention max_bytes extra lineno=0
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    lineno=$(( lineno + 1 ))
+    [[ -z "${line}" || "${line}" == \#* ]] && continue
+    IFS=$'\t' read -r name kind partitions rf min_isr cleanup retention max_bytes extra <<<"${line}"
+    [[ -z "${extra:-}" && -n "${max_bytes:-}" ]] || die "${TOPICS_FILE}:${lineno}: expected 8 tab-separated columns"
+    [[ "${name}" =~ ${TOPIC_PATTERN} ]] || die "${TOPICS_FILE}:${lineno}: '${name}' does not match evt.<ctx>.<aggregate>.<event>.v<major>"
+    case "${kind}" in
+      event)
+        [[ "${name}" != *.dlq.v* ]] || die "${TOPICS_FILE}:${lineno}: event topic '${name}' uses the reserved dlq segment"
+        partitions="${PARTITIONS:-${partitions}}"
+        retention="${RETENTION_MS:-${retention}}"
+        ;;
+      dlq)
+        [[ "${name}" == *.dlq.v* ]] || die "${TOPICS_FILE}:${lineno}: DLQ topic '${name}' must be evt.<ctx>.<aggregate>.dlq.v<major>"
+        partitions="${DLQ_PARTITIONS:-${partitions}}"
+        retention="${DLQ_RETENTION_MS:-${retention}}"
+        ;;
+      *) die "${TOPICS_FILE}:${lineno}: kind must be event or dlq (got '${kind}')" ;;
+    esac
+    [[ "${cleanup}" == "delete" ]] || die "${TOPICS_FILE}:${lineno}: ${name} must use cleanup.policy=delete"
+    rf="${REPLICATION_FACTOR:-${rf}}"
+    min_isr="${MIN_INSYNC_REPLICAS:-${min_isr}}"
+    max_bytes="${MAX_MESSAGE_BYTES:-${max_bytes}}"
+    local value
+    for value in "${partitions}" "${rf}" "${min_isr}" "${retention}" "${max_bytes}"; do
+      is_uint "${value}" && (( value >= 1 )) || die "${TOPICS_FILE}:${lineno}: ${name} has a non-positive numeric setting '${value}'"
+    done
+    (( min_isr <= rf )) || die "${name}: min.insync.replicas (${min_isr}) cannot exceed the replication factor (${rf})"
+    CATALOG_ROWS+=("${name} ${kind} ${partitions} ${rf} ${min_isr} ${cleanup} ${retention} ${max_bytes}")
+  done < "${TOPICS_FILE}"
+  (( ${#CATALOG_ROWS[@]} > 0 )) || die "${TOPICS_FILE} lists no topics"
 }
 
 # Common client arguments for the Kafka CLIs.
@@ -168,55 +170,34 @@ wait_for_kafka() {
 
 CREATED_COUNT=0
 
-# create_topic <name> <partitions> <cleanup.policy> <retention.ms> [extra key=value ...]
+# create_topic <name> <partitions> <rf> <min.insync.replicas> <cleanup.policy> <retention.ms> <max.message.bytes>
 create_topic() {
-  local name="$1" partitions="$2" cleanup="$3" retention="$4"
-  shift 4
+  local name="$1" partitions="$2" rf="$3" min_isr="$4" cleanup="$5" retention="$6" max_bytes="$7"
   local args=(
     "${KAFKA_TOPICS_BIN}" --create "${CLIENT_ARGS[@]}"
     --topic "${name}"
     --partitions "${partitions}"
-    --replication-factor "${REPLICATION_FACTOR}"
+    --replication-factor "${rf}"
     --if-not-exists
     --config "cleanup.policy=${cleanup}"
     --config "retention.ms=${retention}"
-    --config "min.insync.replicas=${MIN_INSYNC_REPLICAS}"
-    --config "max.message.bytes=${MAX_MESSAGE_BYTES}"
+    --config "min.insync.replicas=${min_isr}"
+    --config "max.message.bytes=${max_bytes}"
   )
-  local extra
-  for extra in "$@"; do
-    args+=(--config "${extra}")
-  done
-  log "topic ${name} (partitions=${partitions}, rf=${REPLICATION_FACTOR}, cleanup.policy=${cleanup})"
+  log "topic ${name} (partitions=${partitions}, rf=${rf}, min_isr=${min_isr}, cleanup.policy=${cleanup})"
   run "${args[@]}" || die "failed to create topic ${name}"
   CREATED_COUNT=$(( CREATED_COUNT + 1 ))
 }
 
-# Domain event topics are immutable facts: delete policy, never compaction.
-create_standard_topics() {
-  local topic
-  log "Creating ${#STANDARD_EVENT_TOPICS[@]} standard event topics"
-  for topic in "${STANDARD_EVENT_TOPICS[@]}"; do
-    create_topic "${topic}" "${PARTITIONS}" delete "${RETENTION_MS}"
-  done
-}
-
-# One DLQ per aggregate namespace evt.<ctx>.<aggregate>, derived from the list
-# above so a new namespace cannot ship without its DLQ.
-create_dlq_topics() {
-  local topic ns
-  local -A seen=()
-  local namespaces=()
-  for topic in "${STANDARD_EVENT_TOPICS[@]}"; do
-    ns="$(cut -d. -f1-3 <<<"${topic}")"
-    if [[ -z "${seen[${ns}]:-}" ]]; then
-      seen[${ns}]=1
-      namespaces+=("${ns}")
-    fi
-  done
-  log "Creating ${#namespaces[@]} dead-letter topics"
-  for ns in "${namespaces[@]}"; do
-    create_topic "${ns}.dlq.v1" "${DLQ_PARTITIONS}" delete "${DLQ_RETENTION_MS}"
+# Event and DLQ topics from the catalog. Event topics are immutable facts:
+# delete policy, never compaction (checked above).
+create_catalog_topics() {
+  local row
+  log "Creating ${#CATALOG_ROWS[@]} catalog topics from ${TOPICS_FILE}"
+  for row in "${CATALOG_ROWS[@]}"; do
+    # shellcheck disable=SC2086 # row is a space-separated record built above
+    set -- ${row}
+    create_topic "$1" "$3" "$4" "$5" "$6" "$7" "$8"
   done
 }
 
@@ -285,17 +266,18 @@ create_legacy_topics() {
   local entry name partitions cleanup retention
   for entry in "${LEGACY_TOPICS[@]}"; do
     IFS=':' read -r name partitions cleanup retention <<<"${entry}"
-    create_topic "${name}" "${partitions:-${PARTITIONS}}" "${cleanup:-delete}" "${retention:-${RETENTION_MS}}"
+    create_topic "${name}" "${partitions:-${PARTITIONS:-${LEGACY_PARTITIONS}}}" "${REPLICATION_FACTOR:-3}" \
+      "${MIN_INSYNC_REPLICAS:-2}" "${cleanup:-delete}" "${retention:-${RETENTION_MS:-${LEGACY_RETENTION_MS}}}" \
+      "${MAX_MESSAGE_BYTES:-1048576}"
   done
 }
 
 main() {
   validate_settings
-  validate_topic_names
-  log "broker=${KAFKA_BROKER} partitions=${PARTITIONS} dlq_partitions=${DLQ_PARTITIONS} rf=${REPLICATION_FACTOR} min_isr=${MIN_INSYNC_REPLICAS} legacy=${CREATE_LEGACY_TOPICS} dry_run=${DRY_RUN}"
+  load_catalog
+  log "broker=${KAFKA_BROKER} topics_file=${TOPICS_FILE} overrides: partitions=${PARTITIONS:-catalog} dlq_partitions=${DLQ_PARTITIONS:-catalog} rf=${REPLICATION_FACTOR:-catalog} min_isr=${MIN_INSYNC_REPLICAS:-catalog} legacy=${CREATE_LEGACY_TOPICS} dry_run=${DRY_RUN}"
   wait_for_kafka
-  create_standard_topics
-  create_dlq_topics
+  create_catalog_topics
   create_legacy_topics
   log "Done: ${CREATED_COUNT} topic create requests issued (existing topics are left unchanged)"
 }

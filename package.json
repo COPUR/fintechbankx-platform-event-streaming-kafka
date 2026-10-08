@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test scripts/validation/test/*.test.mjs",
+    "test": "node --test scripts/validation/test/*.test.mjs scripts/catalog/test/*.test.mjs && npm run catalog:check",
+    "catalog:generate": "node scripts/catalog/generate.mjs",
+    "catalog:check": "node scripts/catalog/generate.mjs --check",
     "validate:strict-mtls": "node scripts/validation/validate-strict-mtls.mjs --path k8s --path security",
     "ci:strict-mtls": "npm run test && npm run validate:strict-mtls"
   },

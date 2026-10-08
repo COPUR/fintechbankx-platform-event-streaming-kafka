@@ -1,0 +1,195 @@
+# FinTechBankX topic catalog: the single source of truth for evt.* topics.
+#
+# Status: Proposed (Event Platform Squad review required; each owning squad
+# confirms its namespace). Nothing here says a topic exists on a cluster.
+#
+# Everything under topics/generated/ and deploy/strimzi/generated/ is rendered
+# from this file by `npm run catalog:generate`; `npm test` fails if they drift.
+#
+# Rules enforced by scripts/catalog/catalog.mjs:
+#   - topic name  evt.<ctx>.<aggregate>.<event>.v<major>
+#   - DLQ name    evt.<ctx>.<aggregate>.dlq.v<major>   (one per namespace and major)
+#   - a namespace is owned by exactly one service, and that service's
+#     event_namespace in topics/registry/repository-bootstrap-manifest.csv
+#     must equal the namespace (the owner is the only allowed producer)
+#   - consumer groups are cg.<consumer-service-id>.<purpose>.v<major>
+#   - event topics are immutable facts: cleanup.policy=delete, never compact
+#   - min.insync.replicas < replication factor, so one broker or zone can fail
+#
+# Sources:
+#   - channels: asyncapi/<service-id>.yaml in
+#     fintechbankx-governance-api-contracts-asyncapi-catalog (Proposed contracts)
+#   - producers: the service repositories' outbox envelope factories
+#     (<Ctx>EventEnvelopeFactory, Proposed branches) or legacy adapters
+#   - consumers: no fintechbankx service repository contains a Kafka consumer
+#     (@KafkaListener, KafkaConsumer) on any branch scanned on 2026-10-08, so
+#     every consumer list below is empty and marked unknown. Add a consumer only
+#     with a code or config reference.
+apiVersion: catalog.fintechbankx.io/v1alpha1
+kind: TopicCatalog
+metadata:
+  name: fintechbankx-events
+  status: Proposed
+  owner: svc-evt-streaming
+  owningSquad: Event Platform Squad
+  manifest: topics/registry/repository-bootstrap-manifest.csv
+
+cluster:
+  # Strimzi (in-cluster, non-AWS and local). AWS uses Amazon MSK, see deploy/msk.
+  strimziClusterName: fintechbankx
+  strimziNamespace: kafka
+
+defaults:
+  partitions: 3
+  replicationFactor: 3
+  minInsyncReplicas: 2
+  cleanupPolicy: delete
+  retentionMs: 604800000        # 7 days
+  maxMessageBytes: 1048576      # 1 MiB
+  dlq:
+    partitions: 3
+    retentionMs: 1209600000     # 14 days
+
+# Runtime identity of every service that produces or consumes a catalog topic.
+# k8sNamespace and serviceAccount follow the platform contract; they become the
+# IRSA subject (MSK) and the KafkaUser labels (Strimzi).
+services:
+  svc-ln-loan-lifecycle:
+    k8sNamespace: lending
+    serviceAccount: loan-lifecycle-service
+  svc-pay-initiation-settlement:
+    k8sNamespace: payments
+    serviceAccount: payment-initiation-settlement-service
+  svc-pay-request-to-pay:
+    k8sNamespace: payments
+    # Assumed: the platform contract names no service account for this
+    # service and its repository has no Helm chart yet. Confirm with the squad.
+    serviceAccount: payment-request-to-pay-service
+  svc-cus-profile-kyc:
+    k8sNamespace: customer
+    serviceAccount: customer-profile-kyc-service
+
+namespaces:
+  - namespace: evt.ln.loan
+    owner: svc-ln-loan-lifecycle
+    aggregate: Loan
+    contract: asyncapi/svc-ln-loan-lifecycle.yaml
+    implementation: outbox-relay
+    implementationEvidence: >-
+      fintechbankx-lendingpayments-loan-lifecycle-core, loan-infrastructure
+      LoanEventEnvelopeFactory + OutboxRelay (Proposed branch, not merged).
+    consumersStatus: unknown
+    consumers: []
+    topics:
+      - {event: created, major: 1, eventType: Lending.Loan.Created.v1}
+      - {event: approved, major: 1, eventType: Lending.Loan.Approved.v1}
+      - {event: rejected, major: 1, eventType: Lending.Loan.Rejected.v1}
+      - {event: disbursed, major: 1, eventType: Lending.Loan.Disbursed.v1}
+      - {event: cancelled, major: 1, eventType: Lending.Loan.Cancelled.v1}
+      - {event: payment-made, major: 1, eventType: Lending.Loan.PaymentMade.v1}
+      - {event: fully-paid, major: 1, eventType: Lending.Loan.FullyPaid.v1}
+
+  - namespace: evt.pay.payment
+    owner: svc-pay-initiation-settlement
+    aggregate: Payment
+    contract: asyncapi/svc-pay-initiation-settlement.yaml
+    implementation: outbox-relay
+    implementationEvidence: >-
+      fintechbankx-lendingpayments-payment-orchestration-initiation-settlement,
+      payment-infrastructure PaymentEventEnvelopeFactory + OutboxRelay
+      (Proposed branch, not merged).
+    consumersStatus: unknown
+    consumers: []
+    topics:
+      - {event: created, major: 1, eventType: Payments.Payment.Created.v1}
+      - {event: processing-started, major: 1, eventType: Payments.Payment.ProcessingStarted.v1}
+      - {event: completed, major: 1, eventType: Payments.Payment.Completed.v1}
+      - {event: failed, major: 1, eventType: Payments.Payment.Failed.v1}
+      - {event: cancelled, major: 1, eventType: Payments.Payment.Cancelled.v1}
+      - {event: refunded, major: 1, eventType: Payments.Payment.Refunded.v1}
+      - {event: loan-payment-created, major: 1, eventType: Payments.Payment.LoanPaymentCreated.v1}
+      - {event: loan-payment-completed, major: 1, eventType: Payments.Payment.LoanPaymentCompleted.v1}
+      - {event: loan-payment-failed, major: 1, eventType: Payments.Payment.LoanPaymentFailed.v1}
+
+  - namespace: evt.pay.rtp
+    owner: svc-pay-request-to-pay
+    aggregate: PayRequest
+    contract: asyncapi/svc-pay-request-to-pay.yaml
+    implementation: legacy-topic
+    implementationEvidence: >-
+      fintechbankx-lendingpayments-payment-orchestration-request-to-pay (main),
+      KafkaPayRequestNotificationAdapter publishes all three events to the
+      legacy topic rtp.pay_requests.v1 without the envelope; it does not write
+      these evt.* topics yet.
+    consumersStatus: unknown
+    consumers: []
+    topics:
+      - {event: created, major: 1, eventType: Payments.PayRequest.Created.v1}
+      - {event: accepted, major: 1, eventType: Payments.PayRequest.Accepted.v1}
+      - {event: rejected, major: 1, eventType: Payments.PayRequest.Rejected.v1}
+
+  - namespace: evt.cus.customer
+    owner: svc-cus-profile-kyc
+    aggregate: Customer
+    contract: asyncapi/svc-cus-profile-kyc.yaml
+    implementation: outbox-relay
+    implementationEvidence: >-
+      fintechbankx-customer-profile-kyc-core, customer-infrastructure
+      CustomerEventEnvelopeFactory + OutboxRelay (Proposed branch, not merged).
+    consumersStatus: unknown
+    consumers: []
+    topics:
+      - {event: created, major: 1, eventType: Customer.Customer.Created.v1}
+      - {event: contact-updated, major: 1, eventType: Customer.Customer.ContactUpdated.v1}
+      - {event: credit-limit-updated, major: 1, eventType: Customer.Customer.CreditLimitUpdated.v1}
+      - {event: credit-reserved, major: 1, eventType: Customer.Customer.CreditReserved.v1}
+      - {event: credit-released, major: 1, eventType: Customer.Customer.CreditReleased.v1}
+      - {event: credit-score-updated, major: 1, eventType: Customer.Customer.CreditScoreUpdated.v1}
+
+# Namespaces in the bootstrap manifest with no catalog topics, and producers
+# that write to non-standard topics. Not provisioned; listed so the gap is visible.
+gaps:
+  - service: svc-rsk-decisioning
+    namespace: evt.rsk.risk
+    reason: No domain event publisher or AsyncAPI contract in the service repository.
+  - service: svc-cmp-evidence
+    namespace: evt.cmp.compliance
+    reason: No domain event publisher or AsyncAPI contract in the service repository.
+  - service: svc-pay-recurring-mandates
+    namespace: evt.pay.mandate
+    reason: No publisher in code; copied consent event classes are excluded from compilation.
+  - service: svc-pay-bulk-orchestration
+    namespace: evt.pay.bulk
+    reason: No publisher in code; copied consent event classes are excluded from compilation.
+  - service: svc-of-consent-authorization
+    namespace: evt.of.consent
+    reason: >-
+      No publisher in the fintechbankx repository. The monolith publishes
+      open-finance provider events through a Debezium outbox connector to
+      openfinance.provider.consent.v1 (legacy name, no AsyncAPI contract).
+  - service: unassigned
+    namespace: unassigned
+    reason: >-
+      Monolith Debezium outbox topics openfinance.provider.payment.v1,
+      openfinance.provider.account-data.v1 (compacted) and the command topic
+      openfinance.command.payment-execution.v1 with its retry/dlt topics have
+      no owning fintechbankx service or contract yet. Needs an owner and an
+      evt.of.* namespace before they move here.
+  - service: svc-of-personal-financial-data
+    namespace: evt.of.account
+    reason: No publisher in code and no AsyncAPI contract.
+  - service: svc-of-business-financial-data
+    namespace: evt.of.corporate
+    reason: No publisher in code and no AsyncAPI contract.
+  - service: svc-of-payee-verification
+    namespace: evt.of.payee
+    reason: No publisher in code and no AsyncAPI contract.
+  - service: svc-of-banking-metadata
+    namespace: evt.of.metadata
+    reason: No publisher in code and no AsyncAPI contract.
+  - service: svc-of-open-products-catalog
+    namespace: evt.of.products
+    reason: No publisher in code and no AsyncAPI contract.
+  - service: svc-of-atm-directory
+    namespace: evt.of.atm
+    reason: No publisher in code and no AsyncAPI contract.

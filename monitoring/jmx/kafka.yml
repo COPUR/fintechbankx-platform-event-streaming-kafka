@@ -1,0 +1,59 @@
+# Prometheus JMX exporter rules for the Kafka brokers.
+# Source: enterprise-loan-management-system monitoring/jmx/kafka.yml (first
+# five rules, unchanged). The rules after "Added for the event platform" are
+# new here. hostPort is used only by the standalone exporter container; the
+# Strimzi ConfigMap (deploy/strimzi/generated/kafka-metrics-configmap.yaml)
+# is rendered from this file without it by `npm run catalog:generate`.
+hostPort: "kafka:9999"
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+rules:
+  - pattern: 'kafka.server<type=ReplicaManager, name=UnderReplicatedPartitions><>Value: (.*)'
+    name: kafka_server_replicamanager_underreplicatedpartitions
+    value: '$1'
+    type: GAUGE
+  - pattern: 'kafka.server<type=ReplicaManager, name=UnderMinIsrPartitionCount><>Value: (.*)'
+    name: kafka_server_replicamanager_underminisrpartitioncount
+    value: '$1'
+    type: GAUGE
+  - pattern: 'kafka.controller<type=KafkaController, name=OfflinePartitionsCount><>Value: (.*)'
+    name: kafka_controller_offlinepartitionscount
+    value: '$1'
+    type: GAUGE
+  - pattern: 'kafka.server<type=BrokerTopicMetrics, name=(BytesInPerSec|BytesOutPerSec)><>Count: (.*)'
+    name: kafka_server_brokertopicmetrics_$1_total
+    value: '$2'
+    type: COUNTER
+  - pattern: 'java.lang<type=Memory><HeapMemoryUsage>used: (.*)'
+    name: kafka_jvm_heap_memory_used_bytes
+    value: '$1'
+    type: GAUGE
+  # --- Added for the event platform -------------------------------------
+  - pattern: 'kafka.controller<type=KafkaController, name=ActiveControllerCount><>Value: (.*)'
+    name: kafka_controller_activecontrollercount
+    value: '$1'
+    type: GAUGE
+  - pattern: 'kafka.controller<type=ControllerStats, name=UncleanLeaderElectionsPerSec><>Count: (.*)'
+    name: kafka_controller_uncleanleaderelections_total
+    value: '$1'
+    type: COUNTER
+  - pattern: 'kafka.server<type=ReplicaManager, name=(IsrShrinksPerSec|IsrExpandsPerSec)><>Count: (.*)'
+    name: kafka_server_replicamanager_$1_total
+    value: '$2'
+    type: COUNTER
+  - pattern: 'kafka.server<type=ReplicaManager, name=(PartitionCount|LeaderCount)><>Value: (.*)'
+    name: kafka_server_replicamanager_$1
+    value: '$2'
+    type: GAUGE
+  - pattern: 'kafka.server<type=KafkaRequestHandlerPool, name=RequestHandlerAvgIdlePercent><>OneMinuteRate: (.*)'
+    name: kafka_server_kafkarequesthandlerpool_requesthandleravgidlepercent
+    value: '$1'
+    type: GAUGE
+  # Per-topic produce rate: evidence for the legacy-topic removal criteria
+  # (no producer has written to a topic for one retention period).
+  - pattern: 'kafka.server<type=BrokerTopicMetrics, name=MessagesInPerSec, topic=(.+)><>Count: (.*)'
+    name: kafka_server_brokertopicmetrics_messagesin_total
+    value: '$2'
+    labels:
+      topic: '$1'
+    type: COUNTER
