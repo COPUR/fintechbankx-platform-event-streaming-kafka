@@ -67,6 +67,10 @@ services:
     eventNamespace: evt.pay.payment
     k8sNamespace: payments
     serviceAccount: payment-initiation-settlement-service
+  svc-pay-recurring-mandates:
+    eventNamespace: evt.pay.mandate
+    k8sNamespace: payments
+    serviceAccount: payment-recurring-mandates-service   # confirmed by the service thread
   svc-pay-bulk-orchestration:
     eventNamespace: evt.pay.bulk
     k8sNamespace: payments
@@ -185,10 +189,8 @@ namespaces:
     implementationEvidence: >-
       Outbox relay in fintechbankx-lendingpayments-payment-orchestration-bulk-orchestration
       draft PR #13 (lending and payments thread, 2026-10-08). Records keyed
-      by fileId. The PR named the topics evt.pay.bulk.file-<event>.v1; the
-      catalog rule (topic event = eventType event) makes them
-      evt.pay.bulk.<event>.v1, as for evt.pay.rtp. The contract is to be PR'd
-      into the asyncapi catalog by the service thread.
+      by fileId (topic names confirmed on PR #13 head 1ab37d2). The contract
+      is to be PR'd into the asyncapi catalog by the service thread.
     # No consumers: confirmed by the service thread 2026-10-08.
     consumersStatus: unknown
     consumers: []
@@ -196,6 +198,24 @@ namespaces:
       - {event: accepted, major: 1, eventType: Payments.BulkFile.Accepted.v1}
       - {event: completed, major: 1, eventType: Payments.BulkFile.Completed.v1}
       - {event: rejected, major: 1, eventType: Payments.BulkFile.Rejected.v1}
+
+  - namespace: evt.pay.mandate
+    owner: svc-pay-recurring-mandates
+    aggregate: Mandate
+    contract: asyncapi/svc-pay-recurring-mandates.yaml
+    implementation: outbox-relay
+    implementationEvidence: >-
+      Outbox relay in fintechbankx-lendingpayments-payment-orchestration-recurring-mandates
+      draft PR #13 (lending and payments thread, 2026-10-08), keyed by the
+      mandate id. The contract is to be PR'd into the asyncapi catalog by the
+      service thread.
+    # No consumers in PR #13; none confirmed by the service thread.
+    consumersStatus: unknown
+    consumers: []
+    topics:
+      - {event: created, major: 1, eventType: Payments.Mandate.Created.v1}
+      - {event: payment-accepted, major: 1, eventType: Payments.Mandate.PaymentAccepted.v1}
+      - {event: revoked, major: 1, eventType: Payments.Mandate.Revoked.v1}
 
   - namespace: evt.cus.customer
     owner: svc-cus-profile-kyc
@@ -315,12 +335,6 @@ namespaces:
 # Namespaces in the bootstrap manifest with no catalog topics, and producers
 # that write to non-standard topics. Not provisioned; listed so the gap is visible.
 gaps:
-  - service: svc-pay-recurring-mandates
-    namespace: evt.pay.mandate
-    reason: >-
-      Placeholder. Namespace and runtime identity confirmed (k8s namespace
-      payments, service account payment-recurring-mandates-service); topic
-      list pending from the service thread. No publisher in code yet.
   - service: svc-pay-request-to-pay
     namespace: rtp.pay_requests.v1 (legacy)
     reason: >-

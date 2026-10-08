@@ -644,6 +644,104 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
+  name: evt.pay.mandate.created.v1
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: fintechbankx
+    app.kubernetes.io/part-of: fintechbankx-event-streaming
+    app.kubernetes.io/managed-by: topic-catalog
+    fintechbankx.io/topic-kind: event
+    fintechbankx.io/owner: svc-pay-recurring-mandates
+  annotations:
+    fintechbankx.io/contract: asyncapi/svc-pay-recurring-mandates.yaml
+    fintechbankx.io/event-type: Payments.Mandate.Created.v1
+    fintechbankx.io/dlq: evt.pay.mandate.dlq.v1
+spec:
+  topicName: evt.pay.mandate.created.v1
+  partitions: 3
+  replicas: 3
+  config:
+    cleanup.policy: delete
+    retention.ms: 604800000
+    min.insync.replicas: 2
+    max.message.bytes: 1048576
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: evt.pay.mandate.payment-accepted.v1
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: fintechbankx
+    app.kubernetes.io/part-of: fintechbankx-event-streaming
+    app.kubernetes.io/managed-by: topic-catalog
+    fintechbankx.io/topic-kind: event
+    fintechbankx.io/owner: svc-pay-recurring-mandates
+  annotations:
+    fintechbankx.io/contract: asyncapi/svc-pay-recurring-mandates.yaml
+    fintechbankx.io/event-type: Payments.Mandate.PaymentAccepted.v1
+    fintechbankx.io/dlq: evt.pay.mandate.dlq.v1
+spec:
+  topicName: evt.pay.mandate.payment-accepted.v1
+  partitions: 3
+  replicas: 3
+  config:
+    cleanup.policy: delete
+    retention.ms: 604800000
+    min.insync.replicas: 2
+    max.message.bytes: 1048576
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: evt.pay.mandate.revoked.v1
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: fintechbankx
+    app.kubernetes.io/part-of: fintechbankx-event-streaming
+    app.kubernetes.io/managed-by: topic-catalog
+    fintechbankx.io/topic-kind: event
+    fintechbankx.io/owner: svc-pay-recurring-mandates
+  annotations:
+    fintechbankx.io/contract: asyncapi/svc-pay-recurring-mandates.yaml
+    fintechbankx.io/event-type: Payments.Mandate.Revoked.v1
+    fintechbankx.io/dlq: evt.pay.mandate.dlq.v1
+spec:
+  topicName: evt.pay.mandate.revoked.v1
+  partitions: 3
+  replicas: 3
+  config:
+    cleanup.policy: delete
+    retention.ms: 604800000
+    min.insync.replicas: 2
+    max.message.bytes: 1048576
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: evt.pay.mandate.dlq.v1
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: fintechbankx
+    app.kubernetes.io/part-of: fintechbankx-event-streaming
+    app.kubernetes.io/managed-by: topic-catalog
+    fintechbankx.io/topic-kind: dlq
+    fintechbankx.io/owner: svc-pay-recurring-mandates
+  annotations:
+    fintechbankx.io/contract: asyncapi/svc-pay-recurring-mandates.yaml
+spec:
+  topicName: evt.pay.mandate.dlq.v1
+  partitions: 3
+  replicas: 3
+  config:
+    cleanup.policy: delete
+    retention.ms: 1209600000
+    min.insync.replicas: 2
+    max.message.bytes: 1048576
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
   name: evt.cus.customer.created.v1
   namespace: kafka
   labels:

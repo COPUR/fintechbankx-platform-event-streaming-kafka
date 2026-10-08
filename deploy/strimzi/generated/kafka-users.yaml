@@ -650,6 +650,50 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
+  name: svc-pay-recurring-mandates
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: fintechbankx
+    app.kubernetes.io/part-of: fintechbankx-event-streaming
+    app.kubernetes.io/managed-by: topic-catalog
+    fintechbankx.io/service-id: svc-pay-recurring-mandates
+    fintechbankx.io/workload-namespace: payments
+  annotations:
+    fintechbankx.io/service-account: payment-recurring-mandates-service
+spec:
+  authentication:
+    type: tls
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: evt.pay.mandate.created.v1
+          patternType: literal
+        operations:
+          - Write
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.pay.mandate.payment-accepted.v1
+          patternType: literal
+        operations:
+          - Write
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.pay.mandate.revoked.v1
+          patternType: literal
+        operations:
+          - Write
+          - Describe
+        host: "*"
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
   name: svc-pay-request-to-pay
   namespace: kafka
   labels:

@@ -194,6 +194,21 @@
       "consumer_groups": [],
       "consumer_group_prefixes": []
     },
+    "svc-pay-recurring-mandates": {
+      "kubernetes_namespace": "payments",
+      "service_account": "payment-recurring-mandates-service",
+      "produce_topics": [
+        "evt.pay.mandate.created.v1",
+        "evt.pay.mandate.payment-accepted.v1",
+        "evt.pay.mandate.revoked.v1"
+      ],
+      "produce_topic_prefixes": [
+        "evt.pay.mandate."
+      ],
+      "consume_topics": [],
+      "consumer_groups": [],
+      "consumer_group_prefixes": []
+    },
     "svc-pay-request-to-pay": {
       "kubernetes_namespace": "payments",
       "service_account": "payment-request-to-pay-service",
