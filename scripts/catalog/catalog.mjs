@@ -192,6 +192,20 @@ export function validateCatalog(catalog, manifest) {
       err(`${where}: contract ${ns.contract} does not belong to owner ${owner}`);
     }
 
+    if (ns.dlq !== undefined) {
+      if (ns.dlq === null || typeof ns.dlq !== "object") {
+        err(`${where}: dlq must be a mapping with partitions and/or retentionMs`);
+      } else {
+        for (const key of Object.keys(ns.dlq)) {
+          if (!["partitions", "retentionMs"].includes(key)) {
+            err(`${where}: dlq.${key} is not supported (partitions, retentionMs)`);
+          } else if (!isPositiveInt(ns.dlq[key])) {
+            err(`${where}: dlq.${key} must be a positive integer`);
+          }
+        }
+      }
+    }
+
     const topics = Array.isArray(ns.topics) ? ns.topics : [];
     if (topics.length === 0) {
       err(`${where}: topics must be a non-empty list`);

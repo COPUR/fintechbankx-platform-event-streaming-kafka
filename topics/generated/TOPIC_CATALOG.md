@@ -36,13 +36,15 @@ Defaults: replication factor 3, min.insync.replicas 2, cleanup.policy delete. Re
 | `evt.cus.customer.credit-released.v1` | event | svc-cus-profile-kyc | `Customer.Customer.CreditReleased.v1` | 3 | 604800000 | `evt.cus.customer.dlq.v1` | unknown (none in code) | outbox-relay |
 | `evt.cus.customer.credit-score-updated.v1` | event | svc-cus-profile-kyc | `Customer.Customer.CreditScoreUpdated.v1` | 3 | 604800000 | `evt.cus.customer.dlq.v1` | unknown (none in code) | outbox-relay |
 | `evt.cus.customer.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | consumers of the namespace (none yet) | outbox-relay |
+| `evt.rsk.risk.assessed.v1` | event | svc-rsk-decisioning | `Risk.RiskAssessment.Assessed.v1` | 3 | 604800000 | `evt.rsk.risk.dlq.v1` | unknown (none in code) | contract-only |
+| `evt.rsk.risk.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | consumers of the namespace (none yet) | contract-only |
+| `evt.cmp.compliance.screened.v1` | event | svc-cmp-evidence | `Compliance.ComplianceResult.Screened.v1` | 3 | 604800000 | `evt.cmp.compliance.dlq.v1` | unknown (none in code) | contract-only |
+| `evt.cmp.compliance.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | consumers of the namespace (none yet) | contract-only |
 
 ## Gaps (not provisioned)
 
 | Service | Namespace | Reason |
 |---|---|---|
-| svc-rsk-decisioning | `evt.rsk.risk` | No domain event publisher or AsyncAPI contract in the service repository. |
-| svc-cmp-evidence | `evt.cmp.compliance` | No domain event publisher or AsyncAPI contract in the service repository. |
 | svc-pay-recurring-mandates | `evt.pay.mandate` | No publisher in code; copied consent event classes are excluded from compilation. |
 | svc-pay-bulk-orchestration | `evt.pay.bulk` | No publisher in code; copied consent event classes are excluded from compilation. |
 | svc-of-consent-authorization | `evt.of.consent` | No publisher in the fintechbankx repository. The monolith publishes open-finance provider events through a Debezium outbox connector to openfinance.provider.consent.v1 (legacy name, no AsyncAPI contract). |

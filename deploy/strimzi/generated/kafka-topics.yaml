@@ -715,3 +715,99 @@ spec:
     retention.ms: 1209600000
     min.insync.replicas: 2
     max.message.bytes: 1048576
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: evt.rsk.risk.assessed.v1
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: fintechbankx
+    app.kubernetes.io/part-of: fintechbankx-event-streaming
+    app.kubernetes.io/managed-by: topic-catalog
+    fintechbankx.io/topic-kind: event
+    fintechbankx.io/owner: svc-rsk-decisioning
+  annotations:
+    fintechbankx.io/contract: asyncapi/svc-rsk-decisioning.yaml
+    fintechbankx.io/event-type: Risk.RiskAssessment.Assessed.v1
+    fintechbankx.io/dlq: evt.rsk.risk.dlq.v1
+spec:
+  topicName: evt.rsk.risk.assessed.v1
+  partitions: 3
+  replicas: 3
+  config:
+    cleanup.policy: delete
+    retention.ms: 604800000
+    min.insync.replicas: 2
+    max.message.bytes: 1048576
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: evt.rsk.risk.dlq.v1
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: fintechbankx
+    app.kubernetes.io/part-of: fintechbankx-event-streaming
+    app.kubernetes.io/managed-by: topic-catalog
+    fintechbankx.io/topic-kind: dlq
+    fintechbankx.io/owner: svc-rsk-decisioning
+  annotations:
+    fintechbankx.io/contract: asyncapi/svc-rsk-decisioning.yaml
+spec:
+  topicName: evt.rsk.risk.dlq.v1
+  partitions: 3
+  replicas: 3
+  config:
+    cleanup.policy: delete
+    retention.ms: 1209600000
+    min.insync.replicas: 2
+    max.message.bytes: 1048576
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: evt.cmp.compliance.screened.v1
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: fintechbankx
+    app.kubernetes.io/part-of: fintechbankx-event-streaming
+    app.kubernetes.io/managed-by: topic-catalog
+    fintechbankx.io/topic-kind: event
+    fintechbankx.io/owner: svc-cmp-evidence
+  annotations:
+    fintechbankx.io/contract: asyncapi/svc-cmp-evidence.yaml
+    fintechbankx.io/event-type: Compliance.ComplianceResult.Screened.v1
+    fintechbankx.io/dlq: evt.cmp.compliance.dlq.v1
+spec:
+  topicName: evt.cmp.compliance.screened.v1
+  partitions: 3
+  replicas: 3
+  config:
+    cleanup.policy: delete
+    retention.ms: 604800000
+    min.insync.replicas: 2
+    max.message.bytes: 1048576
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: evt.cmp.compliance.dlq.v1
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: fintechbankx
+    app.kubernetes.io/part-of: fintechbankx-event-streaming
+    app.kubernetes.io/managed-by: topic-catalog
+    fintechbankx.io/topic-kind: dlq
+    fintechbankx.io/owner: svc-cmp-evidence
+  annotations:
+    fintechbankx.io/contract: asyncapi/svc-cmp-evidence.yaml
+spec:
+  topicName: evt.cmp.compliance.dlq.v1
+  partitions: 3
+  replicas: 3
+  config:
+    cleanup.policy: delete
+    retention.ms: 1209600000
+    min.insync.replicas: 2
+    max.message.bytes: 1048576

@@ -46,7 +46,7 @@ defaults:
   cleanupPolicy: delete
   retentionMs: 604800000        # 7 days
   maxMessageBytes: 1048576      # 1 MiB
-  dlq:
+  dlq:                          # per-namespace override: namespaces[].dlq.{partitions,retentionMs}
     partitions: 3
     retentionMs: 1209600000     # 14 days
 
@@ -68,6 +68,12 @@ services:
   svc-cus-profile-kyc:
     k8sNamespace: customer
     serviceAccount: customer-profile-kyc-service
+  svc-rsk-decisioning:
+    k8sNamespace: risk
+    serviceAccount: risk-decisioning-service
+  svc-cmp-evidence:
+    k8sNamespace: compliance
+    serviceAccount: compliance-evidence-service
 
 namespaces:
   - namespace: evt.ln.loan
@@ -146,15 +152,47 @@ namespaces:
       - {event: credit-released, major: 1, eventType: Customer.Customer.CreditReleased.v1}
       - {event: credit-score-updated, major: 1, eventType: Customer.Customer.CreditScoreUpdated.v1}
 
+  # Added on request of the risk/compliance thread. Their AsyncAPI contracts
+  # are on an asyncapi-catalog branch that was not on the remote on
+  # 2026-10-08, and neither service repository publishes these events in code
+  # yet, so both namespaces are contract-only. The eventType aggregate names
+  # are assumed from the domain classes (RiskAssessment, ComplianceResult);
+  # confirm them against the contracts when they land.
+  - namespace: evt.rsk.risk
+    owner: svc-rsk-decisioning
+    aggregate: RiskAssessment
+    contract: asyncapi/svc-rsk-decisioning.yaml
+    implementation: contract-only
+    implementationEvidence: >-
+      Requested by the risk/compliance thread (asyncapi-catalog branch
+      claude/customer-risk-compliance-deployable-ygi0zo, not yet pushed). No
+      publisher in fintechbankx-riskcompliance-risk-decisioning-core.
+    dlq:
+      retentionMs: 1209600000   # 14 days
+    consumersStatus: unknown
+    consumers: []
+    topics:
+      - {event: assessed, major: 1, eventType: Risk.RiskAssessment.Assessed.v1}
+
+  - namespace: evt.cmp.compliance
+    owner: svc-cmp-evidence
+    aggregate: ComplianceResult
+    contract: asyncapi/svc-cmp-evidence.yaml
+    implementation: contract-only
+    implementationEvidence: >-
+      Requested by the risk/compliance thread (asyncapi-catalog branch
+      claude/customer-risk-compliance-deployable-ygi0zo, not yet pushed). No
+      publisher in fintechbankx-riskcompliance-compliance-evidence-core.
+    dlq:
+      retentionMs: 1209600000   # 14 days
+    consumersStatus: unknown
+    consumers: []
+    topics:
+      - {event: screened, major: 1, eventType: Compliance.ComplianceResult.Screened.v1}
+
 # Namespaces in the bootstrap manifest with no catalog topics, and producers
 # that write to non-standard topics. Not provisioned; listed so the gap is visible.
 gaps:
-  - service: svc-rsk-decisioning
-    namespace: evt.rsk.risk
-    reason: No domain event publisher or AsyncAPI contract in the service repository.
-  - service: svc-cmp-evidence
-    namespace: evt.cmp.compliance
-    reason: No domain event publisher or AsyncAPI contract in the service repository.
   - service: svc-pay-recurring-mandates
     namespace: evt.pay.mandate
     reason: No publisher in code; copied consent event classes are excluded from compilation.

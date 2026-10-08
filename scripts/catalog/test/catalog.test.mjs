@@ -214,6 +214,21 @@ test("resolves defaults, overrides and one DLQ per namespace and major", () => {
   assert.deepEqual(dlq.producers, ["svc-rsk-decisioning"]);
 });
 
+test("DLQ partitions and retention are configurable per namespace and validated", () => {
+  const c = fixture();
+  c.namespaces[0].dlq = { retentionMs: 2419200000, partitions: 1 };
+  assert.deepEqual(validateCatalog(c, MANIFEST), []);
+  const dlq = resolveTopics(c).find((t) => t.kind === "dlq");
+  assert.equal(dlq.retentionMs, 2419200000);
+  assert.equal(dlq.partitions, 1);
+  const bad = fixture();
+  bad.namespaces[0].dlq = { retentionMs: -1 };
+  expectError(bad, "dlq.retentionMs must be a positive integer");
+  const unknown = fixture();
+  unknown.namespaces[0].dlq = { cleanupPolicy: "compact" };
+  expectError(unknown, "dlq.cleanupPolicy is not supported");
+});
+
 test("access: owner writes its events, consumers read with their group prefix and write the DLQ", () => {
   const access = resolveAccess(fixture());
   assert.deepEqual(access["svc-ln-loan-lifecycle"].produce_topics, [

@@ -2,6 +2,34 @@
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
+  name: svc-cmp-evidence
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: fintechbankx
+    app.kubernetes.io/part-of: fintechbankx-event-streaming
+    app.kubernetes.io/managed-by: topic-catalog
+    fintechbankx.io/service-id: svc-cmp-evidence
+    fintechbankx.io/workload-namespace: compliance
+  annotations:
+    fintechbankx.io/service-account: compliance-evidence-service
+spec:
+  authentication:
+    type: tls
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: evt.cmp.compliance.screened.v1
+          patternType: literal
+        operations:
+          - Write
+          - Describe
+        host: "*"
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
   name: svc-cus-profile-kyc
   namespace: kafka
   labels:
@@ -273,6 +301,34 @@ spec:
       - resource:
           type: topic
           name: evt.pay.rtp.rejected.v1
+          patternType: literal
+        operations:
+          - Write
+          - Describe
+        host: "*"
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: svc-rsk-decisioning
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: fintechbankx
+    app.kubernetes.io/part-of: fintechbankx-event-streaming
+    app.kubernetes.io/managed-by: topic-catalog
+    fintechbankx.io/service-id: svc-rsk-decisioning
+    fintechbankx.io/workload-namespace: risk
+  annotations:
+    fintechbankx.io/service-account: risk-decisioning-service
+spec:
+  authentication:
+    type: tls
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: evt.rsk.risk.assessed.v1
           patternType: literal
         operations:
           - Write
