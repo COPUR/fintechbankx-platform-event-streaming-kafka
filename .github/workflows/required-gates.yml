@@ -86,26 +86,26 @@ jobs:
           set -euo pipefail
           if [ -f build.gradle ] || [ -f settings.gradle ] || [ -x ./gradlew ]; then
             if [ -x ./gradlew ]; then
-              if ! ./gradlew --no-daemon test; then
+              if ! ./gradlew --no-daemon check; then
                 if [ -f .ci/allow-gradle-fail ]; then
-                  echo "Gradle test failed but .ci/allow-gradle-fail is present; continuing."
+                  echo "Gradle check failed but .ci/allow-gradle-fail is present; continuing."
                 else
                   exit 1
                 fi
               fi
             elif command -v gradle >/dev/null 2>&1; then
-              if ! gradle --no-daemon test; then
+              if ! gradle --no-daemon check; then
                 if [ -f .ci/allow-gradle-fail ]; then
-                  echo "Gradle test failed but .ci/allow-gradle-fail is present; continuing."
+                  echo "Gradle check failed but .ci/allow-gradle-fail is present; continuing."
                 else
                   exit 1
                 fi
               fi
             else
-              echo "Gradle requested but unavailable; skipping Gradle test."
+              echo "Gradle requested but unavailable; skipping Gradle check."
             fi
           else
-            echo "No Gradle root test task in this repository; skipping Gradle test."
+            echo "No Gradle root test task in this repository; skipping Gradle check."
           fi
           if [ -f package.json ]; then
             npm ci
