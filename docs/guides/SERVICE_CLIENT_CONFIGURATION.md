@@ -101,6 +101,17 @@ The relay sends one row at a time in insertion order under a Postgres advisory l
 an aggregate's events keep their order. A Kafka outage does not fail business requests: rows wait in the outbox. Alert
 on the outbox backlog gauge.
 
+Send failures (ADR-021 decision 4):
+
+| Error | Relay behaviour |
+|---|---|
+| Payload errors: `RecordTooLargeException`, `SerializationException`, `InvalidTopicException` | Park the row (recorded with the error class) and continue with the next row |
+| Anything else (authentication, `TopicAuthorizationException` during an ACL rollout, producer construction, timeouts, unclassified) | Stop the batch without marking any row, retry with backoff; never park automatically, so order is kept |
+
+There is no time-based parking ceiling. Only an operator may park a row that failed for a non-payload reason, with
+the reason recorded. Export two metrics: the age of the oldest pending outbox row (gauge) and a send-failure counter
+tagged by exception class. An alert on the oldest-pending age pages the owning squad.
+
 ## 3. Consumer
 
 | Setting | Value | Why |
