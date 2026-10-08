@@ -14,10 +14,13 @@ Standard: `NAMING_CONVENTION_DDD_EDA_BUSINESS_CONTEXT.md` (enterprise-architectu
 
 Multi-word event names use kebab-case in topics (`payment-made`) and PascalCase in the event type (`PaymentMade`).
 
-`scripts/kafka/create-topics.sh` creates the standard topics below by default. The legacy dotted topics are created
-only with `CREATE_LEGACY_TOPICS=true`.
+The standard topics are defined in [`topics/catalog.yaml`](../../topics/catalog.yaml) (the source of truth since
+2026-10-08; resolved table in [`topics/generated/TOPIC_CATALOG.md`](../../topics/generated/TOPIC_CATALOG.md)).
+`scripts/kafka/create-topics.sh` creates them from the generated list; the legacy dotted topics are created only with
+`CREATE_LEGACY_TOPICS=true`. The inventory below is the original 2026-10-07 analysis; the catalog has since added
+`evt.rsk.risk.assessed.v1` and `evt.cmp.compliance.screened.v1` (contract-only).
 
-## 1. Event inventory (source of the standard topic list)
+## 1. Event inventory (original source of the catalog)
 
 Only events that exist in service code are listed. No service README declares `published_events` yet.
 
