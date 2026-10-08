@@ -128,7 +128,8 @@ Dead-letter topics are **consumer-owned** (ADR-019 / ADR-024 in the ADR reposito
 record writes it to the DLQ of **its own** namespace, never to the source topic's namespace. Example: the loan service
 dead-letters a failed `evt.pay.payment.loan-payment-completed.v1` record to `evt.ln.loan.dlq.v1`, not to
 `evt.pay.payment.dlq.v1`. A consumer-only service (no events of its own, such as the open-finance consent projections)
-still gets its namespace DLQ. The catalog grants write and read on that DLQ to its own service only. Do not block a
+still gets its namespace DLQ. A namespace whose service consumes nothing has no DLQ, since nobody would write it;
+an owner that plans a consumer can reserve it early with `dlq: {reserved: true}` in the catalog. The catalog grants write and read on that DLQ to its own service only. Do not block a
 partition forever:
 
 1. Retry in-process with exponential backoff, bounded (for example 3 attempts: 1 s, 2 s, 4 s).

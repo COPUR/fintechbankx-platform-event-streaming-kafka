@@ -199,24 +199,35 @@ test("kebabToPascal maps topic events to event type names", () => {
   assert.equal(kebabToPascal("created"), "Created");
 });
 
-test("resolves defaults, overrides and one DLQ per namespace and major", () => {
+test("resolves defaults and overrides; a producer-only namespace gets no DLQ (consumer-owned rule)", () => {
   const topics = resolveTopics(fixture());
   assert.deepEqual(
     topics.map((t) => t.name),
-    ["evt.ln.loan.created.v1", "evt.ln.loan.disbursed.v1", "evt.ln.loan.payment-made.v1", "evt.ln.loan.dlq.v1", "evt.rsk.risk.dlq.v1"],
+    ["evt.ln.loan.created.v1", "evt.ln.loan.disbursed.v1", "evt.ln.loan.payment-made.v1", "evt.rsk.risk.dlq.v1"],
   );
   const disbursed = topics.find((t) => t.name === "evt.ln.loan.disbursed.v1");
   assert.equal(disbursed.retentionMs, 2592000000);
-  assert.equal(disbursed.dlq, "evt.ln.loan.dlq.v1");
+  assert.equal(disbursed.dlq, null, "an event topic has no single DLQ; each consumer has its own");
   assert.deepEqual(disbursed.producers, ["svc-ln-loan-lifecycle"]);
   const dlq = topics.find((t) => t.kind === "dlq");
   assert.equal(dlq.retentionMs, 1209600000);
-  assert.deepEqual(dlq.producers, [], "the loan namespace DLQ has no writer: loan consumes nothing here");
+});
+
+test("an owner can reserve its namespace DLQ before it consumes anything", () => {
+  const c = fixture();
+  c.namespaces[0].dlq = { reserved: true };
+  assert.deepEqual(validateCatalog(c, MANIFEST), []);
+  const dlq = resolveTopics(c).find((t) => t.name === "evt.ln.loan.dlq.v1");
+  assert.equal(dlq.kind, "dlq");
+  assert.deepEqual(dlq.producers, [], "reserved: no writer until the owner consumes something");
+  const bad = fixture();
+  bad.namespaces[0].dlq = { reserved: "yes" };
+  expectError(bad, "dlq.reserved must be true or false");
 });
 
 test("DLQ partitions and retention are configurable per namespace and validated", () => {
   const c = fixture();
-  c.namespaces[0].dlq = { retentionMs: 2419200000, partitions: 1 };
+  c.namespaces[0].dlq = { reserved: true, retentionMs: 2419200000, partitions: 1 };
   assert.deepEqual(validateCatalog(c, MANIFEST), []);
   const dlq = resolveTopics(c).find((t) => t.name === "evt.ln.loan.dlq.v1");
   assert.equal(dlq.retentionMs, 2419200000);
@@ -238,7 +249,7 @@ test("consumer-owned DLQ: a consumer dead-letters into its own namespace, provis
   assert.equal(own.owner, "svc-rsk-decisioning");
   assert.deepEqual(own.producers, ["svc-rsk-decisioning"]);
   assert.deepEqual(topics.find((t) => t.name === "evt.ln.loan.disbursed.v1").consumers[0].dlq, "evt.rsk.risk.dlq.v1");
-  assert.deepEqual(topics.find((t) => t.name === "evt.ln.loan.dlq.v1").producers, [], "never the source namespace DLQ");
+  assert.equal(topics.find((t) => t.name === "evt.ln.loan.dlq.v1"), undefined, "never the source namespace DLQ");
   c.namespaces[0].consumers[0].dlq = "evt.rsk.risk.dlq.v1";
   assert.deepEqual(validateCatalog(c, MANIFEST), [], "an explicit own-namespace DLQ is accepted");
 });
@@ -279,7 +290,7 @@ test("access: owner writes its events, consumers read with their group prefix an
 
 test("Strimzi KafkaTopic manifests carry catalog settings and the cluster label", () => {
   const docs = YAML.parseAllDocuments(renderStrimziTopics(fixture())).map((d) => d.toJS());
-  assert.equal(docs.length, 5, "3 events, the loan DLQ and the consumer's own DLQ");
+  assert.equal(docs.length, 4, "3 events and the consumer's own DLQ; the producer-only loan namespace has none");
   const created = docs.find((d) => d.metadata.name === "evt.ln.loan.created.v1");
   assert.equal(created.kind, "KafkaTopic");
   assert.equal(created.metadata.namespace, "kafka");
@@ -310,15 +321,15 @@ test("Strimzi KafkaUser uses TLS auth and least-privilege ACLs", () => {
   assert.ok(!risk.spec.authorization.acls.some((a) => a.resource.name === "evt.ln.loan.created.v1"), "no read on unconsumed topics");
 });
 
-test("topics.tsv has eight columns per topic including DLQs", () => {
+test("topics.tsv has eight columns per topic including consumer DLQs", () => {
   const rows = renderTopicsTsv(fixture())
     .split("\n")
     .filter((l) => l && !l.startsWith("#"));
-  assert.equal(rows.length, 5);
+  assert.equal(rows.length, 4);
   for (const row of rows) {
     assert.equal(row.split("\t").length, 8, row);
   }
-  assert.equal(rows[3], "evt.ln.loan.dlq.v1\tdlq\t3\t3\t2\tdelete\t1209600000\t1048576");
+  assert.equal(rows[3], "evt.rsk.risk.dlq.v1\tdlq\t3\t3\t2\tdelete\t1209600000\t1048576");
 });
 
 test("metrics ConfigMap keeps the JMX rules and drops the standalone hostPort", () => {

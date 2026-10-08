@@ -196,11 +196,15 @@ export function validateCatalog(catalog, manifest) {
 
     if (ns.dlq !== undefined) {
       if (ns.dlq === null || typeof ns.dlq !== "object") {
-        err(`${where}: dlq must be a mapping with partitions and/or retentionMs`);
+        err(`${where}: dlq must be a mapping with reserved, partitions and/or retentionMs`);
       } else {
         for (const key of Object.keys(ns.dlq)) {
-          if (!["partitions", "retentionMs"].includes(key)) {
-            err(`${where}: dlq.${key} is not supported (partitions, retentionMs)`);
+          if (key === "reserved") {
+            if (typeof ns.dlq.reserved !== "boolean") {
+              err(`${where}: dlq.reserved must be true or false`);
+            }
+          } else if (!["partitions", "retentionMs"].includes(key)) {
+            err(`${where}: dlq.${key} is not supported (reserved, partitions, retentionMs)`);
           } else if (!isPositiveInt(ns.dlq[key])) {
             err(`${where}: dlq.${key} must be a positive integer`);
           }
@@ -352,6 +356,15 @@ export function resolveTopics(catalog) {
     ...extra,
   });
 
+  const namespaceDlq = (ns, name) =>
+    dlqRecord(name, ns.namespace, ns.owner, {
+      contract: ns.contract,
+      implementation: ns.implementation,
+      partitions: ns.dlq?.partitions ?? d.dlq.partitions,
+      retentionMs: ns.dlq?.retentionMs ?? d.dlq.retentionMs,
+      consumersStatus: ns.consumersStatus,
+    });
+
   for (const ns of catalog.namespaces) {
     const consumers = ns.consumers ?? [];
     const majors = new Set();
@@ -372,7 +385,8 @@ export function resolveTopics(catalog) {
         cleanupPolicy: "delete",
         retentionMs: t.retentionMs ?? d.retentionMs,
         maxMessageBytes: t.maxMessageBytes ?? d.maxMessageBytes,
-        dlq: dlqName(ns.namespace, t.major),
+        // Consumer-owned DLQs (ADR-019): each consumer has its own, so the topic names none.
+        dlq: null,
         producers: [ns.owner],
         consumers: consumers
           .filter((c) => c.topics.includes(name))
@@ -381,34 +395,34 @@ export function resolveTopics(catalog) {
         consumersStatus: ns.consumersStatus,
       });
     }
-    for (const major of [...majors].sort((a, b) => a - b)) {
-      const name = dlqName(ns.namespace, major);
-      dlqs.set(
-        name,
-        dlqRecord(name, ns.namespace, ns.owner, {
-          contract: ns.contract,
-          implementation: ns.implementation,
-          partitions: ns.dlq?.partitions ?? d.dlq.partitions,
-          retentionMs: ns.dlq?.retentionMs ?? d.dlq.retentionMs,
-          consumersStatus: ns.consumersStatus,
-        }),
-      );
+    // A namespace DLQ exists only when its own service consumes something (below), or when the
+    // owner reserves it ahead of its first consumer.
+    if (ns.dlq?.reserved === true) {
+      for (const major of [...majors].sort((a, b) => a - b)) {
+        const name = dlqName(ns.namespace, major);
+        dlqs.set(name, namespaceDlq(ns, name));
+      }
     }
   }
 
-  // Writers, and DLQs of consumers' own namespaces that have no event topics.
+  // Writers, and the DLQs of consumers' own namespaces.
   const consumerOwned = [];
   for (const t of events) {
     for (const c of t.consumers) {
       if (!dlqs.has(c.dlq)) {
         const namespace = c.dlq.slice(0, c.dlq.indexOf(".dlq.v"));
-        const record = dlqRecord(c.dlq, namespace, c.service, {
-          contract: null,
-          implementation: "consumer-dlq",
-          consumersStatus: "known",
-        });
-        dlqs.set(c.dlq, record);
-        consumerOwned.push(record);
+        const ns = catalog.namespaces.find((n) => n.namespace === namespace);
+        if (ns) {
+          dlqs.set(c.dlq, namespaceDlq(ns, c.dlq));
+        } else {
+          const record = dlqRecord(c.dlq, namespace, c.service, {
+            contract: null,
+            implementation: "consumer-dlq",
+            consumersStatus: "known",
+          });
+          dlqs.set(c.dlq, record);
+          consumerOwned.push(record);
+        }
       }
       const record = dlqs.get(c.dlq);
       record.producers = sortedUnique([...record.producers, c.service]);

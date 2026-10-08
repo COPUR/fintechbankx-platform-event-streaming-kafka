@@ -8,7 +8,9 @@
 #
 # Rules enforced by scripts/catalog/catalog.mjs:
 #   - topic name  evt.<ctx>.<aggregate>.<event>.v<major>
-#   - DLQ name    evt.<ctx>.<aggregate>.dlq.v<major>   (one per namespace and major)
+#   - DLQ name    evt.<ctx>.<aggregate>.dlq.v<major>   (one per namespace and major,
+#     only when that namespace's service consumes, or its owner sets
+#     dlq.reserved: true ahead of a planned consumer)
 #   - a namespace is owned by exactly one service, and that service's
 #     event_namespace in topics/registry/repository-bootstrap-manifest.csv
 #     must equal the namespace (the owner is the only allowed producer)
@@ -49,7 +51,7 @@ defaults:
   cleanupPolicy: delete
   retentionMs: 604800000        # 7 days
   maxMessageBytes: 1048576      # 1 MiB
-  dlq:                          # per-namespace override: namespaces[].dlq.{partitions,retentionMs}
+  dlq:                          # per-namespace: namespaces[].dlq.{reserved,partitions,retentionMs}
     partitions: 3
     retentionMs: 1209600000     # 14 days
 
@@ -134,6 +136,7 @@ namespaces:
 
   - namespace: evt.pay.payment
     owner: svc-pay-initiation-settlement
+    dlq: {reserved: true}     # kept until Governance rules on it (asyncapi-catalog #10)
     aggregate: Payment
     contract: asyncapi/svc-pay-initiation-settlement.yaml
     implementation: outbox-relay
@@ -183,6 +186,7 @@ namespaces:
 
   - namespace: evt.pay.bulk
     owner: svc-pay-bulk-orchestration
+    dlq: {reserved: true}     # reserved by its owner (lending and payments thread)
     aggregate: BulkFile
     contract: asyncapi/svc-pay-bulk-orchestration.yaml
     implementation: outbox-relay
@@ -201,6 +205,7 @@ namespaces:
 
   - namespace: evt.pay.mandate
     owner: svc-pay-recurring-mandates
+    dlq: {reserved: true}     # reserved by its owner (lending and payments thread)
     aggregate: Mandate
     contract: asyncapi/svc-pay-recurring-mandates.yaml
     implementation: outbox-relay
@@ -248,8 +253,6 @@ namespaces:
       Requested by the risk/compliance thread (asyncapi-catalog branch
       PR #11, branch claude/customer-risk-compliance-deployable-ygi0zo). No
       publisher in fintechbankx-riskcompliance-risk-decisioning-core.
-    dlq:
-      retentionMs: 1209600000   # 14 days
     consumersStatus: unknown
     consumers: []
     topics:
@@ -264,8 +267,6 @@ namespaces:
       Requested by the risk/compliance thread (asyncapi-catalog branch
       PR #11, branch claude/customer-risk-compliance-deployable-ygi0zo). No
       publisher in fintechbankx-riskcompliance-compliance-evidence-core.
-    dlq:
-      retentionMs: 1209600000   # 14 days
     consumersStatus: unknown
     consumers: []
     topics:
@@ -280,8 +281,6 @@ namespaces:
     aggregate: Consent
     contract: asyncapi/svc-of-consent-authorization.yaml
     implementation: outbox-relay
-    dlq:
-      partitions: 6             # as in the contract
     implementationEvidence: >-
       Contract: asyncapi/svc-of-consent-authorization.yaml (asyncapi-catalog
       PR #12). Outbox relay in progress in the open-finance service thread; replaces
@@ -321,8 +320,6 @@ namespaces:
     aggregate: PayeeVerification
     contract: asyncapi/svc-of-payee-verification.yaml
     implementation: outbox-relay
-    dlq:
-      partitions: 6             # as in the contract
     implementationEvidence: >-
       Contract: asyncapi/svc-of-payee-verification.yaml (asyncapi-catalog PR
       #12). Outbox relay in progress in the open-finance service thread; not
