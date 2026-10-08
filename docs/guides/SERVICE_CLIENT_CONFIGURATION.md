@@ -106,7 +106,7 @@ Send failures (ADR-021 decision 4):
 | Error | Relay behaviour |
 |---|---|
 | Payload errors: `RecordTooLargeException`, `SerializationException`, `InvalidTopicException` | Park the row (status and error class recorded), count it in `outbox_parked_events_total`, raise an alert, continue with the next row |
-| Anything else (authentication, `TopicAuthorizationException` during an ACL rollout, producer construction, timeouts, unclassified) | Stop the batch without marking any row, retry with backoff; never park automatically, so order is kept |
+| Anything else (authentication, `TopicAuthorizationException` during an ACL rollout, `UnknownTopicOrPartitionException` (topic missing or catalog not applied), producer construction, timeouts, unclassified) | Stop the batch without marking any row, retry with backoff; never park automatically, so order is kept |
 
 There is no time-based parking ceiling. Only an operator may park a row that failed for a non-payload reason, with
 the reason recorded. Metrics (Micrometer names, Prometheus names in brackets; common tags `app` = service account and
