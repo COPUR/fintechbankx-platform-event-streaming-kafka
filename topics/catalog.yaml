@@ -185,7 +185,6 @@ namespaces:
 
   - namespace: evt.pay.bulk
     owner: svc-pay-bulk-orchestration
-    dlq: {reserved: true}     # reserved by its owner (lending and payments thread)
     aggregate: BulkFile
     contract: asyncapi/svc-pay-bulk-orchestration.yaml
     implementation: outbox-relay
@@ -204,7 +203,6 @@ namespaces:
 
   - namespace: evt.pay.mandate
     owner: svc-pay-recurring-mandates
-    dlq: {reserved: true}     # reserved by its owner (lending and payments thread)
     aggregate: Mandate
     contract: asyncapi/svc-pay-recurring-mandates.yaml
     implementation: outbox-relay
