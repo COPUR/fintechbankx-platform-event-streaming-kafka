@@ -1,257 +1,303 @@
-#!/bin/bash
+#!/usr/bin/env bash
+#
+# FinTechBankX event platform (svc-evt-streaming) - Kafka topic provisioning.
+#
+# Creates the standard topics from NAMING_CONVENTION_DDD_EDA_BUSINESS_CONTEXT.md:
+#   event topic : evt.<ctx>.<aggregate>.<event>.v<major>
+#   dead letter : evt.<ctx>.<aggregate>.dlq.v<major>   (one per aggregate namespace)
+#
+# The topic list mirrors the event inventory in
+# docs/architecture/TOPIC_NAMING_MIGRATION.md. Add a topic here only when the
+# owning service publishes it (domain event class or README published_events)
+# and its AsyncAPI contract exists in the asyncapi catalog.
+#
+# Legacy dotted topics (customer.created, loan.disbursed, ...) are created only
+# with CREATE_LEGACY_TOPICS=true. Do not remove them before the dual-publish
+# plan in docs/architecture/TOPIC_NAMING_MIGRATION.md is complete.
+#
+# Environment (all optional):
+#   KAFKA_BROKER            bootstrap servers                     (default kafka:9092)
+#   KAFKA_COMMAND_CONFIG    client properties file for TLS/SASL   (default: none)
+#   PARTITIONS              partitions per event topic            (default 3)
+#   DLQ_PARTITIONS          partitions per DLQ topic              (default PARTITIONS)
+#   REPLICATION_FACTOR      replication factor                    (default 3; use 1 locally)
+#   MIN_INSYNC_REPLICAS     min.insync.replicas                   (default 2; use 1 locally)
+#   RETENTION_MS            event topic retention                 (default 604800000, 7 days)
+#   DLQ_RETENTION_MS        DLQ retention                         (default 1209600000, 14 days)
+#   MAX_MESSAGE_BYTES       max.message.bytes                     (default 1048576)
+#   CREATE_LEGACY_TOPICS    also create legacy dotted topics      (default false)
+#   KAFKA_TOPICS_BIN        kafka-topics CLI name or path         (default kafka-topics)
+#   KAFKA_API_VERSIONS_BIN  broker readiness CLI                  (default kafka-broker-api-versions)
+#   WAIT_TIMEOUT_SECONDS    max wait for the broker               (default 300)
+#   DRY_RUN                 print commands, do not call Kafka     (default false)
+#
+# Local single-broker example:
+#   REPLICATION_FACTOR=1 MIN_INSYNC_REPLICAS=1 KAFKA_BROKER=localhost:9092 \
+#     scripts/kafka/create-topics.sh
+#
+# Note: --if-not-exists leaves existing topics untouched. Changing partitions,
+# replication or configs of an existing topic is a separate, reviewed change.
 
-# Enterprise Loan Management System - Kafka Topics Creation
-# Creates all required Kafka topics with proper partitioning and replication
+set -euo pipefail
 
-set -e
+KAFKA_BROKER="${KAFKA_BROKER:-kafka:9092}"
+KAFKA_COMMAND_CONFIG="${KAFKA_COMMAND_CONFIG:-}"
+PARTITIONS="${PARTITIONS:-3}"
+DLQ_PARTITIONS="${DLQ_PARTITIONS:-${PARTITIONS}}"
+REPLICATION_FACTOR="${REPLICATION_FACTOR:-3}"
+MIN_INSYNC_REPLICAS="${MIN_INSYNC_REPLICAS:-2}"
+RETENTION_MS="${RETENTION_MS:-604800000}"
+DLQ_RETENTION_MS="${DLQ_RETENTION_MS:-1209600000}"
+MAX_MESSAGE_BYTES="${MAX_MESSAGE_BYTES:-1048576}"
+CREATE_LEGACY_TOPICS="${CREATE_LEGACY_TOPICS:-false}"
+KAFKA_TOPICS_BIN="${KAFKA_TOPICS_BIN:-kafka-topics}"
+KAFKA_API_VERSIONS_BIN="${KAFKA_API_VERSIONS_BIN:-kafka-broker-api-versions}"
+WAIT_TIMEOUT_SECONDS="${WAIT_TIMEOUT_SECONDS:-300}"
+DRY_RUN="${DRY_RUN:-false}"
 
-KAFKA_BROKER="kafka:9092"
-PARTITIONS=3
-REPLICATION_FACTOR=1
+# Retention for legacy audit/compliance aggregate streams (1 year), as before.
+readonly LEGACY_LONG_RETENTION_MS=31536000000
 
-echo "🚀 Creating Kafka topics for Enterprise Loan Management System..."
+# ---------------------------------------------------------------------------
+# Standard event topics, grouped by publishing service and event namespace.
+# Source of each entry: see docs/architecture/TOPIC_NAMING_MIGRATION.md.
+# ---------------------------------------------------------------------------
+readonly STANDARD_EVENT_TOPICS=(
+  # svc-ln-loan-lifecycle, namespace evt.ln.loan (aggregate Loan)
+  evt.ln.loan.created.v1
+  evt.ln.loan.approved.v1
+  evt.ln.loan.rejected.v1
+  evt.ln.loan.disbursed.v1
+  evt.ln.loan.cancelled.v1
+  evt.ln.loan.payment-made.v1
+  evt.ln.loan.fully-paid.v1
 
-# Wait for Kafka to be ready
-echo "⏳ Waiting for Kafka to be ready..."
-until kafka-broker-api-versions --bootstrap-server $KAFKA_BROKER >/dev/null 2>&1; do
-    echo "Kafka not ready yet, waiting 5 seconds..."
-    sleep 5
-done
+  # svc-pay-initiation-settlement, namespace evt.pay.payment (aggregate Payment)
+  evt.pay.payment.created.v1
+  evt.pay.payment.processing-started.v1
+  evt.pay.payment.completed.v1
+  evt.pay.payment.failed.v1
+  evt.pay.payment.cancelled.v1
+  evt.pay.payment.refunded.v1
+  evt.pay.payment.loan-payment-created.v1
+  evt.pay.payment.loan-payment-completed.v1
+  evt.pay.payment.loan-payment-failed.v1
 
-echo "✅ Kafka is ready!"
+  # svc-pay-request-to-pay, namespace evt.pay.rtp (aggregate PayRequest)
+  evt.pay.rtp.created.v1
+  evt.pay.rtp.accepted.v1
+  evt.pay.rtp.rejected.v1
 
-# Function to create topic
-create_topic() {
-    local topic_name=$1
-    local partitions=${2:-$PARTITIONS}
-    local replication=${3:-$REPLICATION_FACTOR}
-    
-    echo "📝 Creating topic: $topic_name (partitions: $partitions, replication: $replication)"
-    
-    kafka-topics --create \
-        --bootstrap-server $KAFKA_BROKER \
-        --topic $topic_name \
-        --partitions $partitions \
-        --replication-factor $replication \
-        --if-not-exists \
-        --config cleanup.policy=compact,delete \
-        --config retention.ms=604800000 \
-        --config segment.ms=86400000 \
-        --config max.message.bytes=1048576
-    
-    if [ $? -eq 0 ]; then
-        echo "✅ Topic $topic_name created successfully"
-    else
-        echo "❌ Failed to create topic $topic_name"
-        return 1
-    fi
+  # svc-cus-profile-kyc, namespace evt.cus.customer (aggregate Customer)
+  evt.cus.customer.created.v1
+  evt.cus.customer.contact-updated.v1
+  evt.cus.customer.credit-limit-updated.v1
+  evt.cus.customer.credit-reserved.v1
+  evt.cus.customer.credit-released.v1
+  evt.cus.customer.credit-score-updated.v1
+)
+
+readonly TOPIC_PATTERN='^evt\.[a-z]+\.[a-z0-9]+(-[a-z0-9]+)*\.[a-z0-9]+(-[a-z0-9]+)*\.v[0-9]+$'
+
+log() { printf '%s %s\n' "[create-topics]" "$*"; }
+die() { printf '%s ERROR: %s\n' "[create-topics]" "$*" >&2; exit 1; }
+
+is_uint() { [[ "$1" =~ ^[0-9]+$ ]]; }
+is_bool() { [[ "$1" == "true" || "$1" == "false" ]]; }
+
+validate_settings() {
+  local name
+  for name in PARTITIONS DLQ_PARTITIONS REPLICATION_FACTOR MIN_INSYNC_REPLICAS \
+              RETENTION_MS DLQ_RETENTION_MS MAX_MESSAGE_BYTES WAIT_TIMEOUT_SECONDS; do
+    is_uint "${!name}" || die "${name} must be a non-negative integer (got '${!name}')"
+  done
+  for name in PARTITIONS DLQ_PARTITIONS REPLICATION_FACTOR MIN_INSYNC_REPLICAS; do
+    (( ${!name} >= 1 )) || die "${name} must be >= 1"
+  done
+  for name in CREATE_LEGACY_TOPICS DRY_RUN; do
+    is_bool "${!name}" || die "${name} must be 'true' or 'false' (got '${!name}')"
+  done
+  (( MIN_INSYNC_REPLICAS <= REPLICATION_FACTOR )) \
+    || die "MIN_INSYNC_REPLICAS (${MIN_INSYNC_REPLICAS}) cannot exceed REPLICATION_FACTOR (${REPLICATION_FACTOR})"
+  if (( REPLICATION_FACTOR < 3 )); then
+    log "WARNING: REPLICATION_FACTOR=${REPLICATION_FACTOR} is for local use only; prod-like clusters use 3 with MIN_INSYNC_REPLICAS=2."
+  fi
+  if [[ -n "${KAFKA_COMMAND_CONFIG}" && "${DRY_RUN}" == "false" && ! -r "${KAFKA_COMMAND_CONFIG}" ]]; then
+    die "KAFKA_COMMAND_CONFIG is set but not readable: ${KAFKA_COMMAND_CONFIG}"
+  fi
 }
 
-# Core Banking Topics
-echo "🏦 Creating Core Banking Topics..."
+validate_topic_names() {
+  local topic
+  for topic in "${STANDARD_EVENT_TOPICS[@]}"; do
+    [[ "${topic}" =~ ${TOPIC_PATTERN} ]] || die "topic '${topic}' does not match evt.<ctx>.<aggregate>.<event>.v<major>"
+    [[ "${topic}" != *.dlq.v* ]] || die "topic '${topic}': DLQs are derived, do not list them"
+  done
+}
 
-# Customer Domain Events
-create_topic "customer.events" 3 1
-create_topic "customer.created" 3 1
-create_topic "customer.updated" 3 1
-create_topic "customer.activated" 3 1
-create_topic "customer.suspended" 3 1
-create_topic "customer.closed" 3 1
-create_topic "customer.kyc.completed" 3 1
-create_topic "customer.credit.updated" 3 1
+# Common client arguments for the Kafka CLIs.
+CLIENT_ARGS=(--bootstrap-server "${KAFKA_BROKER}")
+if [[ -n "${KAFKA_COMMAND_CONFIG}" ]]; then
+  CLIENT_ARGS+=(--command-config "${KAFKA_COMMAND_CONFIG}")
+fi
 
-# Loan Domain Events
-create_topic "loan.events" 3 1
-create_topic "loan.application.submitted" 3 1
-create_topic "loan.application.approved" 3 1
-create_topic "loan.application.rejected" 3 1
-create_topic "loan.disbursed" 3 1
-create_topic "loan.payment.made" 3 1
-create_topic "loan.payment.overdue" 3 1
-create_topic "loan.paid.off" 3 1
-create_topic "loan.defaulted" 3 1
-create_topic "loan.restructured" 3 1
+run() {
+  if [[ "${DRY_RUN}" == "true" ]]; then
+    printf '+ %s\n' "$*"
+  else
+    "$@"
+  fi
+}
 
-# Payment Domain Events
-create_topic "payment.events" 3 1
-create_topic "payment.initiated" 3 1
-create_topic "payment.processed" 3 1
-create_topic "payment.completed" 3 1
-create_topic "payment.failed" 3 1
-create_topic "payment.cancelled" 3 1
-create_topic "payment.refunded" 3 1
-create_topic "payment.reversed" 3 1
+wait_for_kafka() {
+  if [[ "${DRY_RUN}" == "true" ]]; then
+    log "DRY_RUN=true: skipping broker readiness check"
+    return 0
+  fi
+  local waited=0
+  log "Waiting for Kafka at ${KAFKA_BROKER} (timeout ${WAIT_TIMEOUT_SECONDS}s)"
+  until "${KAFKA_API_VERSIONS_BIN}" "${CLIENT_ARGS[@]}" >/dev/null 2>&1; do
+    if (( waited >= WAIT_TIMEOUT_SECONDS )); then
+      die "Kafka not reachable at ${KAFKA_BROKER} after ${WAIT_TIMEOUT_SECONDS}s"
+    fi
+    sleep 5
+    waited=$(( waited + 5 ))
+  done
+  log "Kafka is ready"
+}
 
-# Compliance and Audit Topics
-echo "🔒 Creating Compliance and Audit Topics..."
+CREATED_COUNT=0
 
-create_topic "compliance.events" 3 1
-create_topic "compliance.kyc.check" 3 1
-create_topic "compliance.aml.check" 3 1
-create_topic "compliance.sanctions.check" 3 1
-create_topic "compliance.pep.check" 3 1
-create_topic "compliance.regulatory.report" 3 1
+# create_topic <name> <partitions> <cleanup.policy> <retention.ms> [extra key=value ...]
+create_topic() {
+  local name="$1" partitions="$2" cleanup="$3" retention="$4"
+  shift 4
+  local args=(
+    "${KAFKA_TOPICS_BIN}" --create "${CLIENT_ARGS[@]}"
+    --topic "${name}"
+    --partitions "${partitions}"
+    --replication-factor "${REPLICATION_FACTOR}"
+    --if-not-exists
+    --config "cleanup.policy=${cleanup}"
+    --config "retention.ms=${retention}"
+    --config "min.insync.replicas=${MIN_INSYNC_REPLICAS}"
+    --config "max.message.bytes=${MAX_MESSAGE_BYTES}"
+  )
+  local extra
+  for extra in "$@"; do
+    args+=(--config "${extra}")
+  done
+  log "topic ${name} (partitions=${partitions}, rf=${REPLICATION_FACTOR}, cleanup.policy=${cleanup})"
+  run "${args[@]}" || die "failed to create topic ${name}"
+  CREATED_COUNT=$(( CREATED_COUNT + 1 ))
+}
 
-create_topic "audit.events" 6 1
-create_topic "audit.user.actions" 3 1
-create_topic "audit.data.changes" 3 1
-create_topic "audit.security.events" 3 1
-create_topic "audit.access.logs" 3 1
-create_topic "audit.system.events" 3 1
+# Domain event topics are immutable facts: delete policy, never compaction.
+create_standard_topics() {
+  local topic
+  log "Creating ${#STANDARD_EVENT_TOPICS[@]} standard event topics"
+  for topic in "${STANDARD_EVENT_TOPICS[@]}"; do
+    create_topic "${topic}" "${PARTITIONS}" delete "${RETENTION_MS}"
+  done
+}
 
-# ML and Analytics Topics
-echo "🤖 Creating ML and Analytics Topics..."
+# One DLQ per aggregate namespace evt.<ctx>.<aggregate>, derived from the list
+# above so a new namespace cannot ship without its DLQ.
+create_dlq_topics() {
+  local topic ns
+  local -A seen=()
+  local namespaces=()
+  for topic in "${STANDARD_EVENT_TOPICS[@]}"; do
+    ns="$(cut -d. -f1-3 <<<"${topic}")"
+    if [[ -z "${seen[${ns}]:-}" ]]; then
+      seen[${ns}]=1
+      namespaces+=("${ns}")
+    fi
+  done
+  log "Creating ${#namespaces[@]} dead-letter topics"
+  for ns in "${namespaces[@]}"; do
+    create_topic "${ns}.dlq.v1" "${DLQ_PARTITIONS}" delete "${DLQ_RETENTION_MS}"
+  done
+}
 
-create_topic "ml.events" 3 1
-create_topic "ml.fraud.detection" 3 1
-create_topic "ml.credit.scoring" 3 1
-create_topic "ml.risk.assessment" 3 1
-create_topic "ml.anomaly.detection" 3 1
-create_topic "ml.model.training" 3 1
-create_topic "ml.model.deployment" 3 1
-create_topic "ml.predictions" 3 1
+# ---------------------------------------------------------------------------
+# Legacy dotted topics (pre-standard). Opt-in only. Kept for the monolith and
+# for consumers that have not moved yet; mapping and removal criteria are in
+# docs/architecture/TOPIC_NAMING_MIGRATION.md.
+# Format: name[:partitions[:cleanup.policy[:retention.ms]]]
+# ---------------------------------------------------------------------------
+readonly LEGACY_TOPICS=(
+  # Customer
+  "customer.events:3:compact" "customer.created" "customer.updated" "customer.activated"
+  "customer.suspended" "customer.closed" "customer.kyc.completed" "customer.credit.updated"
+  # Loan
+  "loan.events:3:compact" "loan.application.submitted" "loan.application.approved"
+  "loan.application.rejected" "loan.disbursed" "loan.payment.made" "loan.payment.overdue"
+  "loan.paid.off" "loan.defaulted" "loan.restructured"
+  # Payment
+  "payment.events" "payment.initiated" "payment.processed" "payment.completed"
+  "payment.failed" "payment.cancelled" "payment.refunded" "payment.reversed"
+  # Request to pay (produced today by svc-pay-request-to-pay)
+  "rtp.pay_requests.v1"
+  # Compliance and audit
+  "compliance.events:3:delete:${LEGACY_LONG_RETENTION_MS}" "compliance.kyc.check"
+  "compliance.aml.check" "compliance.sanctions.check" "compliance.pep.check"
+  "compliance.regulatory.report"
+  "audit.events:6:delete:${LEGACY_LONG_RETENTION_MS}" "audit.user.actions"
+  "audit.data.changes" "audit.security.events" "audit.access.logs" "audit.system.events"
+  # ML and analytics
+  "ml.events" "ml.fraud.detection" "ml.credit.scoring" "ml.risk.assessment"
+  "ml.anomaly.detection" "ml.model.training" "ml.model.deployment" "ml.predictions"
+  "analytics.events" "analytics.transaction.volume" "analytics.performance.metrics"
+  "analytics.business.metrics" "analytics.customer.behavior"
+  # Federation and cross-region
+  "federation.events" "federation.metrics" "federation.alerts"
+  "federation.disaster.recovery" "federation.regional.sync"
+  "cross.region.us.east.1" "cross.region.eu.west.1" "cross.region.ap.southeast.1"
+  # Security
+  "security.events" "security.oauth.events" "security.dpop.events" "security.fapi.events"
+  "security.authentication" "security.authorization" "security.token.events"
+  "security.session.events"
+  "zerotrust.events" "zerotrust.continuous.verification" "zerotrust.policy.enforcement"
+  "zerotrust.threat.detection"
+  # Open banking
+  "openbanking.events" "openbanking.account.access" "openbanking.payment.initiation"
+  "openbanking.consent.management" "openbanking.api.calls"
+  # Notifications
+  "notifications.events" "notifications.email" "notifications.sms" "notifications.push"
+  "notifications.system.alerts"
+  # Dead letter
+  "deadletter.events" "deadletter.customer" "deadletter.loan" "deadletter.payment"
+  "deadletter.compliance" "deadletter.ml"
+  # Monitoring
+  "monitoring.events" "monitoring.health.checks" "monitoring.performance"
+  "monitoring.errors" "monitoring.alerts"
+  # High throughput
+  "transactions.high.volume:6" "payments.real.time:6" "fraud.detection.real.time:6"
+)
 
-# Real-time Analytics
-create_topic "analytics.events" 3 1
-create_topic "analytics.transaction.volume" 3 1
-create_topic "analytics.performance.metrics" 3 1
-create_topic "analytics.business.metrics" 3 1
-create_topic "analytics.customer.behavior" 3 1
+create_legacy_topics() {
+  if [[ "${CREATE_LEGACY_TOPICS}" != "true" ]]; then
+    log "Skipping ${#LEGACY_TOPICS[@]} legacy dotted topics (set CREATE_LEGACY_TOPICS=true to create them)"
+    return 0
+  fi
+  log "CREATE_LEGACY_TOPICS=true: creating ${#LEGACY_TOPICS[@]} legacy topics (deprecated, see docs/architecture/TOPIC_NAMING_MIGRATION.md)"
+  local entry name partitions cleanup retention
+  for entry in "${LEGACY_TOPICS[@]}"; do
+    IFS=':' read -r name partitions cleanup retention <<<"${entry}"
+    create_topic "${name}" "${partitions:-${PARTITIONS}}" "${cleanup:-delete}" "${retention:-${RETENTION_MS}}"
+  done
+}
 
-# Federation and Cross-Region Topics
-echo "🌍 Creating Federation and Cross-Region Topics..."
+main() {
+  validate_settings
+  validate_topic_names
+  log "broker=${KAFKA_BROKER} partitions=${PARTITIONS} dlq_partitions=${DLQ_PARTITIONS} rf=${REPLICATION_FACTOR} min_isr=${MIN_INSYNC_REPLICAS} legacy=${CREATE_LEGACY_TOPICS} dry_run=${DRY_RUN}"
+  wait_for_kafka
+  create_standard_topics
+  create_dlq_topics
+  create_legacy_topics
+  log "Done: ${CREATED_COUNT} topic create requests issued (existing topics are left unchanged)"
+}
 
-create_topic "federation.events" 3 1
-create_topic "federation.metrics" 3 1
-create_topic "federation.alerts" 3 1
-create_topic "federation.disaster.recovery" 3 1
-create_topic "federation.regional.sync" 3 1
-
-# Cross-region replication topics
-create_topic "cross.region.us.east.1" 3 1
-create_topic "cross.region.eu.west.1" 3 1
-create_topic "cross.region.ap.southeast.1" 3 1
-
-# OAuth 2.1 + DPoP + FAPI Security Topics
-echo "🔐 Creating Security Topics..."
-
-create_topic "security.events" 3 1
-create_topic "security.oauth.events" 3 1
-create_topic "security.dpop.events" 3 1
-create_topic "security.fapi.events" 3 1
-create_topic "security.authentication" 3 1
-create_topic "security.authorization" 3 1
-create_topic "security.token.events" 3 1
-create_topic "security.session.events" 3 1
-
-# Zero Trust Security Topics
-create_topic "zerotrust.events" 3 1
-create_topic "zerotrust.continuous.verification" 3 1
-create_topic "zerotrust.policy.enforcement" 3 1
-create_topic "zerotrust.threat.detection" 3 1
-
-# Open Banking Topics
-echo "🏪 Creating Open Banking Topics..."
-
-create_topic "openbanking.events" 3 1
-create_topic "openbanking.account.access" 3 1
-create_topic "openbanking.payment.initiation" 3 1
-create_topic "openbanking.consent.management" 3 1
-create_topic "openbanking.api.calls" 3 1
-
-# Notification and Communication Topics
-echo "📢 Creating Notification Topics..."
-
-create_topic "notifications.events" 3 1
-create_topic "notifications.email" 3 1
-create_topic "notifications.sms" 3 1
-create_topic "notifications.push" 3 1
-create_topic "notifications.system.alerts" 3 1
-
-# Dead Letter Topics
-echo "💀 Creating Dead Letter Topics..."
-
-create_topic "deadletter.events" 3 1
-create_topic "deadletter.customer" 3 1
-create_topic "deadletter.loan" 3 1
-create_topic "deadletter.payment" 3 1
-create_topic "deadletter.compliance" 3 1
-create_topic "deadletter.ml" 3 1
-
-# Monitoring and Metrics Topics
-echo "📊 Creating Monitoring Topics..."
-
-create_topic "monitoring.events" 3 1
-create_topic "monitoring.health.checks" 3 1
-create_topic "monitoring.performance" 3 1
-create_topic "monitoring.errors" 3 1
-create_topic "monitoring.alerts" 3 1
-
-# High-throughput topics for transaction processing
-echo "⚡ Creating High-Throughput Topics..."
-
-create_topic "transactions.high.volume" 6 1
-create_topic "payments.real.time" 6 1
-create_topic "fraud.detection.real.time" 6 1
-
-# Configure topic settings for specific use cases
-echo "⚙️ Configuring topic-specific settings..."
-
-# High-retention topics for compliance
-kafka-configs --bootstrap-server $KAFKA_BROKER --alter --entity-type topics --entity-name audit.events --add-config retention.ms=31536000000  # 1 year
-kafka-configs --bootstrap-server $KAFKA_BROKER --alter --entity-type topics --entity-name compliance.events --add-config retention.ms=31536000000  # 1 year
-
-# Low-latency topics for real-time processing
-kafka-configs --bootstrap-server $KAFKA_BROKER --alter --entity-type topics --entity-name fraud.detection.real.time --add-config min.insync.replicas=1
-kafka-configs --bootstrap-server $KAFKA_BROKER --alter --entity-type topics --entity-name payments.real.time --add-config min.insync.replicas=1
-
-# Compacted topics for state management
-kafka-configs --bootstrap-server $KAFKA_BROKER --alter --entity-type topics --entity-name customer.events --add-config cleanup.policy=compact
-kafka-configs --bootstrap-server $KAFKA_BROKER --alter --entity-type topics --entity-name loan.events --add-config cleanup.policy=compact
-
-# List all created topics
-echo "📋 Listing all created topics:"
-kafka-topics --bootstrap-server $KAFKA_BROKER --list | sort
-
-# Verify topic creation
-echo "🔍 Verifying topic configurations:"
-total_topics=$(kafka-topics --bootstrap-server $KAFKA_BROKER --list | wc -l)
-echo "✅ Total topics created: $total_topics"
-
-# Topic health check
-echo "🏥 Performing topic health check..."
-for topic in $(kafka-topics --bootstrap-server $KAFKA_BROKER --list | head -5); do
-    kafka-topics --bootstrap-server $KAFKA_BROKER --describe --topic $topic | head -1
-done
-
-echo "🎉 Kafka topics setup completed successfully!"
-echo "📝 Topics are ready for Enterprise Loan Management System"
-echo "🔧 All topics configured with:"
-echo "   - Partitions: $PARTITIONS"
-echo "   - Replication Factor: $REPLICATION_FACTOR"
-echo "   - Retention: 7 days (audit/compliance: 1 year)"
-echo "   - Cleanup Policy: compact,delete"
-echo "   - Max Message Size: 1MB"
-
-# Create sample messages for testing
-echo "📨 Creating sample messages for testing..."
-
-# Sample customer event
-echo '{"eventType":"customer.created","customerId":"110e8400-e29b-41d4-a716-446655440001","customerNumber":"CUST-001","timestamp":"2024-01-01T10:00:00Z","eventData":{"customerType":"INDIVIDUAL","status":"ACTIVE","riskRating":"LOW"}}' | kafka-console-producer --bootstrap-server $KAFKA_BROKER --topic customer.events
-
-# Sample loan event
-echo '{"eventType":"loan.application.submitted","loanId":"990e8400-e29b-41d4-a716-446655440001","applicationId":"880e8400-e29b-41d4-a716-446655440001","timestamp":"2024-01-15T10:00:00Z","eventData":{"loanType":"PERSONAL","requestedAmount":25000.00,"customerId":"110e8400-e29b-41d4-a716-446655440001"}}' | kafka-console-producer --bootstrap-server $KAFKA_BROKER --topic loan.events
-
-# Sample payment event
-echo '{"eventType":"payment.processed","paymentId":"bb0e8400-e29b-41d4-a716-446655440001","timestamp":"2024-03-01T10:00:00Z","eventData":{"amount":486.87,"currency":"USD","paymentMethod":"BANK_TRANSFER","status":"COMPLETED"}}' | kafka-console-producer --bootstrap-server $KAFKA_BROKER --topic payment.events
-
-# Sample ML event
-echo '{"eventType":"fraud.detection","predictionId":"2f0e8400-e29b-41d4-a716-446655440001","timestamp":"2024-03-01T10:00:00Z","eventData":{"entityType":"PAYMENT","fraudProbability":0.0234,"riskScore":2,"confidence":0.9876}}' | kafka-console-producer --bootstrap-server $KAFKA_BROKER --topic ml.fraud.detection
-
-# Sample federation event
-echo '{"eventType":"cross.region.metric","region":"us-east-1","timestamp":"2024-03-01T10:00:00Z","eventData":{"metricType":"CPU_UTILIZATION","value":65.5,"unit":"percentage","threshold":80}}' | kafka-console-producer --bootstrap-server $KAFKA_BROKER --topic federation.metrics
-
-echo "✅ Sample messages created successfully!"
-echo "🔗 You can now test the system with pre-populated Kafka topics and sample data"
-
-exit 0
+main "$@"
