@@ -136,7 +136,6 @@ namespaces:
 
   - namespace: evt.pay.payment
     owner: svc-pay-initiation-settlement
-    dlq: {reserved: true}     # kept until Governance rules on it (asyncapi-catalog #10)
     aggregate: Payment
     contract: asyncapi/svc-pay-initiation-settlement.yaml
     implementation: outbox-relay

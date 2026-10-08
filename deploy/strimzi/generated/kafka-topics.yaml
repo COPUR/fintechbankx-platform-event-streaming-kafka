@@ -409,29 +409,6 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: evt.pay.payment.dlq.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: dlq
-    fintechbankx.io/owner: svc-pay-initiation-settlement
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-pay-initiation-settlement.yaml
-spec:
-  topicName: evt.pay.payment.dlq.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 1209600000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
   name: evt.pay.rtp.created.v1
   namespace: kafka
   labels:

@@ -24,7 +24,6 @@ Defaults: replication factor 3, min.insync.replicas 2, cleanup.policy delete. Re
 | `evt.pay.payment.loan-payment-created.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.LoanPaymentCreated.v1` | 3 | 604800000 | - | known (none in code) | outbox-relay |
 | `evt.pay.payment.loan-payment-completed.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.LoanPaymentCompleted.v1` | 3 | 604800000 | - | svc-ln-loan-lifecycle (`cg.svc-ln-loan-lifecycle.loan-repayment-allocation.v1`, DLQ `evt.ln.loan.dlq.v1`) | outbox-relay |
 | `evt.pay.payment.loan-payment-failed.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.LoanPaymentFailed.v1` | 3 | 604800000 | - | known (none in code) | outbox-relay |
-| `evt.pay.payment.dlq.v1` | dlq | svc-pay-initiation-settlement, once it consumes (consumer-owned DLQ) | - | 3 | 1209600000 | - | - | outbox-relay |
 | `evt.pay.rtp.created.v1` | event | svc-pay-request-to-pay | `Payments.PayRequest.Created.v1` | 3 | 604800000 | - | unknown (none in code) | outbox-relay |
 | `evt.pay.rtp.accepted.v1` | event | svc-pay-request-to-pay | `Payments.PayRequest.Accepted.v1` | 3 | 604800000 | - | unknown (none in code) | outbox-relay |
 | `evt.pay.rtp.rejected.v1` | event | svc-pay-request-to-pay | `Payments.PayRequest.Rejected.v1` | 3 | 604800000 | - | unknown (none in code) | outbox-relay |

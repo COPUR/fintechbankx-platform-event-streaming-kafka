@@ -18,7 +18,6 @@ evt.pay.payment.refunded.v1	event	3	3	2	delete	604800000	1048576
 evt.pay.payment.loan-payment-created.v1	event	3	3	2	delete	604800000	1048576
 evt.pay.payment.loan-payment-completed.v1	event	3	3	2	delete	604800000	1048576
 evt.pay.payment.loan-payment-failed.v1	event	3	3	2	delete	604800000	1048576
-evt.pay.payment.dlq.v1	dlq	3	3	2	delete	1209600000	1048576
 evt.pay.rtp.created.v1	event	3	3	2	delete	604800000	1048576
 evt.pay.rtp.accepted.v1	event	3	3	2	delete	604800000	1048576
 evt.pay.rtp.rejected.v1	event	3	3	2	delete	604800000	1048576
