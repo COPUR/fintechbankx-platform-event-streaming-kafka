@@ -112,8 +112,9 @@ the producer's dual-publish window and de-duplicate on `eventId`.
 
 ### Retries and the dead-letter topic
 
-Each namespace has one DLQ, `evt.<ctx>.<aggregate>.dlq.v<major>`, written by the consumer that gives up (the catalog
-grants each declared consumer write and read on it). Do not block a partition forever:
+Each namespace has one DLQ, `evt.<ctx>.<aggregate>.dlq.v<major>`. A consumer that gives up writes either the source
+namespace DLQ (default) or, if its catalog entry sets `dlq:`, the DLQ of its own namespace; the catalog grants it write
+and read on exactly that one. Do not block a partition forever:
 
 1. Retry in-process with exponential backoff, bounded (for example 3 attempts: 1 s, 2 s, 4 s).
 2. Send to the DLQ immediately, without retries, for errors that cannot heal: deserialization, contract violation,

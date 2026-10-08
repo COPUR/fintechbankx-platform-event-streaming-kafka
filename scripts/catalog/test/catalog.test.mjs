@@ -229,6 +229,31 @@ test("DLQ partitions and retention are configurable per namespace and validated"
   expectError(unknown, "dlq.cleanupPolicy is not supported");
 });
 
+test("a consumer may write the DLQ of its own namespace, which is provisioned even without event topics", () => {
+  const c = fixture();
+  c.namespaces[0].consumers[0].dlq = "evt.rsk.risk.dlq.v1";
+  assert.deepEqual(validateCatalog(c, MANIFEST), []);
+  const topics = resolveTopics(c);
+  const own = topics.find((t) => t.name === "evt.rsk.risk.dlq.v1");
+  assert.equal(own.kind, "dlq");
+  assert.equal(own.owner, "svc-rsk-decisioning");
+  assert.deepEqual(own.producers, ["svc-rsk-decisioning"]);
+  assert.deepEqual(topics.find((t) => t.name === "evt.ln.loan.dlq.v1").producers, [], "source DLQ has no writer then");
+  const access = resolveAccess(c)["svc-rsk-decisioning"];
+  assert.deepEqual(access.produce_topics, ["evt.rsk.risk.dlq.v1"]);
+  assert.deepEqual(access.produce_topic_prefixes, ["evt.rsk.risk."]);
+  assert.deepEqual(access.consume_topics, ["evt.ln.loan.disbursed.v1", "evt.rsk.risk.dlq.v1"]);
+});
+
+test("rejects a consumer DLQ outside the source namespace and the consumer's own namespace", () => {
+  const c = fixture();
+  c.namespaces[0].consumers[0].dlq = "evt.cmp.compliance.dlq.v1";
+  expectError(c, "must be one of evt.ln.loan.dlq.v1, evt.rsk.risk.dlq.v1");
+  const d = fixture();
+  d.namespaces[0].consumers[0].dlq = "evt.rsk.risk.dlq.v2";
+  expectError(d, "must be one of");
+});
+
 test("access: owner writes its events, consumers read with their group prefix and write the DLQ", () => {
   const access = resolveAccess(fixture());
   assert.deepEqual(access["svc-ln-loan-lifecycle"].produce_topics, [

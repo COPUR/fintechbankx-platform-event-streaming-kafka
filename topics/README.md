@@ -39,7 +39,9 @@ node scripts/catalog/generate.mjs --check --asyncapi <asyncapi-catalog-checkout>
 - `cleanup.policy` is `delete` (events are immutable facts); `min.insync.replicas` is lower than the replication
   factor (defaults 2 and 3).
 - A consumer needs a code or config reference (`evidence`), a consumer group `cg.<service-id>.<purpose>.v<major>` and
-  the exact topics it reads. Consumers write and read (redrive) the namespace DLQ; the owner only writes its events.
+  the exact topics it reads. A consumer writes and reads (redrive) one DLQ: by default the source namespace DLQ, or
+  with `dlq:` the DLQ of its own manifest namespace (provisioned even if that namespace has no event topics yet, as
+  for the open-finance consent projections). The owner only writes its events.
 
 ## Bootstrap manifest copy
 
@@ -51,5 +53,7 @@ that repository, so the copy is vendored. Refresh it when the manifest changes a
 
 ## Consumers today
 
-No fintechbankx service repository contains a Kafka consumer on any branch scanned on 2026-10-08, so every
-`consumers` list is empty and `consumersStatus` is `unknown`. Monolith consumers of legacy topics are not mapped.
+No fintechbankx service repository contained a Kafka consumer on the branches scanned on 2026-10-08. The consumers in
+the catalog (loan repayment allocation on `evt.pay.payment.loan-payment-completed.v1`, three open-finance consent
+projections) were confirmed by the service threads and are in progress; their `evidence` says so. Monolith consumers
+of legacy topics are not mapped.

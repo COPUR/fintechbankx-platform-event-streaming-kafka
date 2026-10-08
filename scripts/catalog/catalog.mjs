@@ -288,6 +288,20 @@ export function validateCatalog(catalog, manifest) {
           err(`${cwhere}: topic ${name} is not an event topic of ${ns.namespace}`);
         }
       }
+      if (c?.dlq !== undefined) {
+        // The DLQ a consumer writes on give-up: the source namespace DLQ (default)
+        // or the DLQ of the consumer's own manifest namespace.
+        const majors = [...new Set(ctopics.map((n) => n.slice(n.lastIndexOf(".v") + 2)))];
+        const ownNs = manifest.get(c?.service)?.event_namespace;
+        if (majors.length !== 1) {
+          err(`${cwhere}: an explicit dlq needs consumed topics of a single major version`);
+        } else {
+          const allowed = [dlqName(ns.namespace, majors[0]), ...(ownNs ? [dlqName(ownNs, majors[0])] : [])];
+          if (!allowed.includes(c.dlq)) {
+            err(`${cwhere}: dlq ${c.dlq} must be one of ${allowed.join(", ")}`);
+          }
+        }
+      }
     }
   }
 
@@ -319,14 +333,34 @@ function escapeRegExp(value) {
 
 export function resolveTopics(catalog) {
   const d = catalog.defaults;
-  const out = [];
+  const events = [];
+  const dlqs = new Map();
+  const dlqRecord = (name, namespace, owner, extra) => ({
+    name,
+    kind: "dlq",
+    namespace,
+    owner,
+    eventType: null,
+    partitions: d.dlq.partitions,
+    replicationFactor: d.replicationFactor,
+    minInsyncReplicas: d.minInsyncReplicas,
+    cleanupPolicy: "delete",
+    retentionMs: d.dlq.retentionMs,
+    maxMessageBytes: d.maxMessageBytes,
+    dlq: null,
+    // DLQ records are written by the consumer groups that gave up.
+    producers: [],
+    consumers: [],
+    ...extra,
+  });
+
   for (const ns of catalog.namespaces) {
     const consumers = ns.consumers ?? [];
     const majors = new Set();
     for (const t of ns.topics) {
       const name = `${ns.namespace}.${t.event}.v${t.major}`;
       majors.add(t.major);
-      out.push({
+      events.push({
         name,
         kind: "event",
         namespace: ns.namespace,
@@ -344,39 +378,57 @@ export function resolveTopics(catalog) {
         producers: [ns.owner],
         consumers: consumers
           .filter((c) => c.topics.includes(name))
-          .map((c) => ({ service: c.service, group: c.group }))
+          .map((c) => ({ service: c.service, group: c.group, dlq: consumerDlq(ns, c, t.major) }))
           .sort((a, b) => a.service.localeCompare(b.service)),
         consumersStatus: ns.consumersStatus,
       });
     }
     for (const major of [...majors].sort((a, b) => a - b)) {
       const name = dlqName(ns.namespace, major);
-      const dlqWriters = sortedUnique(
-        consumers.filter((c) => c.topics.some((n) => n.endsWith(`.v${major}`))).map((c) => c.service),
-      );
-      out.push({
+      dlqs.set(
         name,
-        kind: "dlq",
-        namespace: ns.namespace,
-        owner: ns.owner,
-        eventType: null,
-        contract: ns.contract,
-        implementation: ns.implementation,
-        partitions: ns.dlq?.partitions ?? d.dlq.partitions,
-        replicationFactor: d.replicationFactor,
-        minInsyncReplicas: d.minInsyncReplicas,
-        cleanupPolicy: "delete",
-        retentionMs: ns.dlq?.retentionMs ?? d.dlq.retentionMs,
-        maxMessageBytes: d.maxMessageBytes,
-        dlq: null,
-        // DLQ records are written by the consumer group that gave up.
-        producers: dlqWriters,
-        consumers: [],
-        consumersStatus: ns.consumersStatus,
-      });
+        dlqRecord(name, ns.namespace, ns.owner, {
+          contract: ns.contract,
+          implementation: ns.implementation,
+          partitions: ns.dlq?.partitions ?? d.dlq.partitions,
+          retentionMs: ns.dlq?.retentionMs ?? d.dlq.retentionMs,
+          consumersStatus: ns.consumersStatus,
+        }),
+      );
     }
   }
+
+  // Writers, and DLQs of consumers' own namespaces that have no event topics.
+  const consumerOwned = [];
+  for (const t of events) {
+    for (const c of t.consumers) {
+      if (!dlqs.has(c.dlq)) {
+        const namespace = c.dlq.slice(0, c.dlq.indexOf(".dlq.v"));
+        const record = dlqRecord(c.dlq, namespace, c.service, {
+          contract: null,
+          implementation: "consumer-dlq",
+          consumersStatus: "known",
+        });
+        dlqs.set(c.dlq, record);
+        consumerOwned.push(record);
+      }
+      const record = dlqs.get(c.dlq);
+      record.producers = sortedUnique([...record.producers, c.service]);
+    }
+  }
+
+  const out = [];
+  for (const ns of catalog.namespaces) {
+    out.push(...events.filter((t) => t.namespace === ns.namespace));
+    out.push(...[...dlqs.values()].filter((t) => t.namespace === ns.namespace && !consumerOwned.includes(t)));
+  }
+  out.push(...consumerOwned.sort((a, b) => a.name.localeCompare(b.name)));
   return out;
+}
+
+/** DLQ a consumer writes for a consumed topic of the given major version. */
+export function consumerDlq(ns, consumer, major) {
+  return consumer.dlq ?? dlqName(ns.namespace, major);
 }
 
 /**
@@ -410,6 +462,10 @@ export function resolveAccess(catalog) {
       for (const writer of t.producers) {
         entry(writer).produce.add(t.name);
         entry(writer).consume.add(t.name);
+        if (writer === t.owner) {
+          // A consumer's own-namespace DLQ: grantable by the owned-prefix form too.
+          entry(writer).owned.add(`${t.namespace}.`);
+        }
       }
     }
   }
@@ -460,7 +516,7 @@ export function renderStrimziTopics(catalog) {
         "fintechbankx.io/owner": t.owner,
       },
       annotations: {
-        "fintechbankx.io/contract": t.contract,
+        ...(t.contract ? { "fintechbankx.io/contract": t.contract } : {}),
         ...(t.eventType ? { "fintechbankx.io/event-type": t.eventType } : {}),
         ...(t.dlq ? { "fintechbankx.io/dlq": t.dlq } : {}),
       },
@@ -597,7 +653,7 @@ export function renderMarkdown(catalog) {
           ? `${t.producers.join(", ")} (redrive)`
           : "consumers of the namespace (none yet)"
         : t.consumers.length > 0
-          ? t.consumers.map((c) => `${c.service} (\`${c.group}\`)`).join(", ")
+          ? t.consumers.map((c) => `${c.service} (\`${c.group}\`, DLQ \`${c.dlq}\`)`).join(", ")
           : `${t.consumersStatus} (none in code)`;
     lines.push(
       `| \`${t.name}\` | ${t.kind} | ${mdCell(producers)} | ${t.eventType ? `\`${t.eventType}\`` : "-"} | ${t.partitions} | ${t.retentionMs} | ${t.dlq ? `\`${t.dlq}\`` : "-"} | ${mdCell(consumers)} | ${t.implementation} |`,

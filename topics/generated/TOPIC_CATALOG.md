@@ -15,20 +15,20 @@ Defaults: replication factor 3, min.insync.replicas 2, cleanup.policy delete. Re
 | `evt.ln.loan.payment-made.v1` | event | svc-ln-loan-lifecycle | `Lending.Loan.PaymentMade.v1` | 3 | 604800000 | `evt.ln.loan.dlq.v1` | unknown (none in code) | outbox-relay |
 | `evt.ln.loan.fully-paid.v1` | event | svc-ln-loan-lifecycle | `Lending.Loan.FullyPaid.v1` | 3 | 604800000 | `evt.ln.loan.dlq.v1` | unknown (none in code) | outbox-relay |
 | `evt.ln.loan.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | consumers of the namespace (none yet) | outbox-relay |
-| `evt.pay.payment.created.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.Created.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | unknown (none in code) | outbox-relay |
-| `evt.pay.payment.processing-started.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.ProcessingStarted.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | unknown (none in code) | outbox-relay |
-| `evt.pay.payment.completed.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.Completed.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | unknown (none in code) | outbox-relay |
-| `evt.pay.payment.failed.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.Failed.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | unknown (none in code) | outbox-relay |
-| `evt.pay.payment.cancelled.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.Cancelled.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | unknown (none in code) | outbox-relay |
-| `evt.pay.payment.refunded.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.Refunded.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | unknown (none in code) | outbox-relay |
-| `evt.pay.payment.loan-payment-created.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.LoanPaymentCreated.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | unknown (none in code) | outbox-relay |
-| `evt.pay.payment.loan-payment-completed.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.LoanPaymentCompleted.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | unknown (none in code) | outbox-relay |
-| `evt.pay.payment.loan-payment-failed.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.LoanPaymentFailed.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | unknown (none in code) | outbox-relay |
-| `evt.pay.payment.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | consumers of the namespace (none yet) | outbox-relay |
-| `evt.pay.rtp.created.v1` | event | svc-pay-request-to-pay | `Payments.PayRequest.Created.v1` | 3 | 604800000 | `evt.pay.rtp.dlq.v1` | unknown (none in code) | legacy-topic |
-| `evt.pay.rtp.accepted.v1` | event | svc-pay-request-to-pay | `Payments.PayRequest.Accepted.v1` | 3 | 604800000 | `evt.pay.rtp.dlq.v1` | unknown (none in code) | legacy-topic |
-| `evt.pay.rtp.rejected.v1` | event | svc-pay-request-to-pay | `Payments.PayRequest.Rejected.v1` | 3 | 604800000 | `evt.pay.rtp.dlq.v1` | unknown (none in code) | legacy-topic |
-| `evt.pay.rtp.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | consumers of the namespace (none yet) | legacy-topic |
+| `evt.pay.payment.created.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.Created.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | known (none in code) | outbox-relay |
+| `evt.pay.payment.processing-started.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.ProcessingStarted.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | known (none in code) | outbox-relay |
+| `evt.pay.payment.completed.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.Completed.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | known (none in code) | outbox-relay |
+| `evt.pay.payment.failed.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.Failed.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | known (none in code) | outbox-relay |
+| `evt.pay.payment.cancelled.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.Cancelled.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | known (none in code) | outbox-relay |
+| `evt.pay.payment.refunded.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.Refunded.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | known (none in code) | outbox-relay |
+| `evt.pay.payment.loan-payment-created.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.LoanPaymentCreated.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | known (none in code) | outbox-relay |
+| `evt.pay.payment.loan-payment-completed.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.LoanPaymentCompleted.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | svc-ln-loan-lifecycle (`cg.svc-ln-loan-lifecycle.loan-repayment-allocation.v1`, DLQ `evt.pay.payment.dlq.v1`) | outbox-relay |
+| `evt.pay.payment.loan-payment-failed.v1` | event | svc-pay-initiation-settlement | `Payments.Payment.LoanPaymentFailed.v1` | 3 | 604800000 | `evt.pay.payment.dlq.v1` | known (none in code) | outbox-relay |
+| `evt.pay.payment.dlq.v1` | dlq | svc-ln-loan-lifecycle | - | 3 | 1209600000 | - | svc-ln-loan-lifecycle (redrive) | outbox-relay |
+| `evt.pay.rtp.created.v1` | event | svc-pay-request-to-pay | `Payments.PayRequest.Created.v1` | 3 | 604800000 | `evt.pay.rtp.dlq.v1` | unknown (none in code) | outbox-relay |
+| `evt.pay.rtp.accepted.v1` | event | svc-pay-request-to-pay | `Payments.PayRequest.Accepted.v1` | 3 | 604800000 | `evt.pay.rtp.dlq.v1` | unknown (none in code) | outbox-relay |
+| `evt.pay.rtp.rejected.v1` | event | svc-pay-request-to-pay | `Payments.PayRequest.Rejected.v1` | 3 | 604800000 | `evt.pay.rtp.dlq.v1` | unknown (none in code) | outbox-relay |
+| `evt.pay.rtp.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | consumers of the namespace (none yet) | outbox-relay |
 | `evt.cus.customer.created.v1` | event | svc-cus-profile-kyc | `Customer.Customer.Created.v1` | 3 | 604800000 | `evt.cus.customer.dlq.v1` | unknown (none in code) | outbox-relay |
 | `evt.cus.customer.contact-updated.v1` | event | svc-cus-profile-kyc | `Customer.Customer.ContactUpdated.v1` | 3 | 604800000 | `evt.cus.customer.dlq.v1` | unknown (none in code) | outbox-relay |
 | `evt.cus.customer.credit-limit-updated.v1` | event | svc-cus-profile-kyc | `Customer.Customer.CreditLimitUpdated.v1` | 3 | 604800000 | `evt.cus.customer.dlq.v1` | unknown (none in code) | outbox-relay |
@@ -40,18 +40,27 @@ Defaults: replication factor 3, min.insync.replicas 2, cleanup.policy delete. Re
 | `evt.rsk.risk.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | consumers of the namespace (none yet) | contract-only |
 | `evt.cmp.compliance.screened.v1` | event | svc-cmp-evidence | `Compliance.ComplianceScreening.Screened.v1` | 3 | 604800000 | `evt.cmp.compliance.dlq.v1` | unknown (none in code) | contract-only |
 | `evt.cmp.compliance.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | consumers of the namespace (none yet) | contract-only |
+| `evt.of.consent.created.v1` | event | svc-of-consent-authorization | `OpenFinance.Consent.Created.v1` | 6 | 7776000000 | `evt.of.consent.dlq.v1` | svc-of-banking-metadata (`cg.svc-of-banking-metadata.consent-projection.v1`, DLQ `evt.of.metadata.dlq.v1`), svc-of-business-financial-data (`cg.svc-of-business-financial-data.consent-projection.v1`, DLQ `evt.of.corporate.dlq.v1`), svc-of-personal-financial-data (`cg.svc-of-personal-financial-data.consent-projection.v1`, DLQ `evt.of.account.dlq.v1`) | outbox-relay |
+| `evt.of.consent.authorized.v1` | event | svc-of-consent-authorization | `OpenFinance.Consent.Authorized.v1` | 6 | 7776000000 | `evt.of.consent.dlq.v1` | svc-of-banking-metadata (`cg.svc-of-banking-metadata.consent-projection.v1`, DLQ `evt.of.metadata.dlq.v1`), svc-of-business-financial-data (`cg.svc-of-business-financial-data.consent-projection.v1`, DLQ `evt.of.corporate.dlq.v1`), svc-of-personal-financial-data (`cg.svc-of-personal-financial-data.consent-projection.v1`, DLQ `evt.of.account.dlq.v1`) | outbox-relay |
+| `evt.of.consent.revoked.v1` | event | svc-of-consent-authorization | `OpenFinance.Consent.Revoked.v1` | 6 | 7776000000 | `evt.of.consent.dlq.v1` | svc-of-banking-metadata (`cg.svc-of-banking-metadata.consent-projection.v1`, DLQ `evt.of.metadata.dlq.v1`), svc-of-business-financial-data (`cg.svc-of-business-financial-data.consent-projection.v1`, DLQ `evt.of.corporate.dlq.v1`), svc-of-personal-financial-data (`cg.svc-of-personal-financial-data.consent-projection.v1`, DLQ `evt.of.account.dlq.v1`) | outbox-relay |
+| `evt.of.consent.expired.v1` | event | svc-of-consent-authorization | `OpenFinance.Consent.Expired.v1` | 6 | 7776000000 | `evt.of.consent.dlq.v1` | svc-of-banking-metadata (`cg.svc-of-banking-metadata.consent-projection.v1`, DLQ `evt.of.metadata.dlq.v1`), svc-of-business-financial-data (`cg.svc-of-business-financial-data.consent-projection.v1`, DLQ `evt.of.corporate.dlq.v1`), svc-of-personal-financial-data (`cg.svc-of-personal-financial-data.consent-projection.v1`, DLQ `evt.of.account.dlq.v1`) | outbox-relay |
+| `evt.of.consent.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | consumers of the namespace (none yet) | outbox-relay |
+| `evt.of.payee.verification-completed.v1` | event | svc-of-payee-verification | `OpenFinance.PayeeVerification.VerificationCompleted.v1` | 6 | 604800000 | `evt.of.payee.dlq.v1` | unknown (none in code) | outbox-relay |
+| `evt.of.payee.dlq.v1` | dlq | consumers of the namespace (none yet) | - | 3 | 1209600000 | - | consumers of the namespace (none yet) | outbox-relay |
+| `evt.of.account.dlq.v1` | dlq | svc-of-personal-financial-data | - | 3 | 1209600000 | - | svc-of-personal-financial-data (redrive) | consumer-dlq |
+| `evt.of.corporate.dlq.v1` | dlq | svc-of-business-financial-data | - | 3 | 1209600000 | - | svc-of-business-financial-data (redrive) | consumer-dlq |
+| `evt.of.metadata.dlq.v1` | dlq | svc-of-banking-metadata | - | 3 | 1209600000 | - | svc-of-banking-metadata (redrive) | consumer-dlq |
 
 ## Gaps (not provisioned)
 
 | Service | Namespace | Reason |
 |---|---|---|
-| svc-pay-recurring-mandates | `evt.pay.mandate` | No publisher in code; copied consent event classes are excluded from compilation. |
-| svc-pay-bulk-orchestration | `evt.pay.bulk` | No publisher in code; copied consent event classes are excluded from compilation. |
-| svc-of-consent-authorization | `evt.of.consent` | No publisher in the fintechbankx repository. The monolith publishes open-finance provider events through a Debezium outbox connector to openfinance.provider.consent.v1 (legacy name, no AsyncAPI contract). |
-| unassigned | `unassigned` | Monolith Debezium outbox topics openfinance.provider.payment.v1, openfinance.provider.account-data.v1 (compacted) and the command topic openfinance.command.payment-execution.v1 with its retry/dlt topics have no owning fintechbankx service or contract yet. Needs an owner and an evt.of.* namespace before they move here. |
-| svc-of-personal-financial-data | `evt.of.account` | No publisher in code and no AsyncAPI contract. |
-| svc-of-business-financial-data | `evt.of.corporate` | No publisher in code and no AsyncAPI contract. |
-| svc-of-payee-verification | `evt.of.payee` | No publisher in code and no AsyncAPI contract. |
-| svc-of-banking-metadata | `evt.of.metadata` | No publisher in code and no AsyncAPI contract. |
+| svc-pay-recurring-mandates | `evt.pay.mandate` | Placeholder. Namespace and runtime identity confirmed (k8s namespace payments, service account payment-recurring-mandates-service); topic list pending from the service thread. No publisher in code yet. |
+| svc-pay-bulk-orchestration | `evt.pay.bulk` | Placeholder. Namespace and runtime identity confirmed (k8s namespace payments, service account payment-bulk-orchestration-service); topic list pending from the service thread. No publisher in code yet. |
+| svc-pay-request-to-pay | `rtp.pay_requests.v1 (legacy)` | Legacy topic still written by KafkaPayRequestNotificationAdapter on main. To be retired once evt.pay.rtp.* is published through the outbox and the dual-publish criteria in TOPIC_NAMING_MIGRATION.md are met; kept under CREATE_LEGACY_TOPICS until then. |
+| unassigned | `unassigned` | Monolith Debezium outbox topics openfinance.provider.payment.v1, openfinance.provider.account-data.v1 (compacted) and the command topic openfinance.command.payment-execution.v1 with its retry/dlt topics have no owning fintechbankx service or contract yet. Needs an owner and an evt.of.* namespace before they move here. (openfinance.provider.consent.v1 is covered by evt.of.consent.) |
+| svc-of-personal-financial-data | `evt.of.account` | No events published. Only its consumer DLQ evt.of.account.dlq.v1 is provisioned (consent projection). |
+| svc-of-business-financial-data | `evt.of.corporate` | No events published. Only its consumer DLQ evt.of.corporate.dlq.v1 is provisioned (consent projection). |
+| svc-of-banking-metadata | `evt.of.metadata` | No events published. Only its consumer DLQ evt.of.metadata.dlq.v1 is provisioned (consent projection). |
 | svc-of-open-products-catalog | `evt.of.products` | No publisher in code and no AsyncAPI contract. |
 | svc-of-atm-directory | `evt.of.atm` | No publisher in code and no AsyncAPI contract. |

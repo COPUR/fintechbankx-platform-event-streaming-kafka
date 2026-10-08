@@ -43,14 +43,120 @@
         "evt.ln.loan.disbursed.v1",
         "evt.ln.loan.fully-paid.v1",
         "evt.ln.loan.payment-made.v1",
-        "evt.ln.loan.rejected.v1"
+        "evt.ln.loan.rejected.v1",
+        "evt.pay.payment.dlq.v1"
       ],
       "produce_topic_prefixes": [
         "evt.ln.loan."
       ],
+      "consume_topics": [
+        "evt.pay.payment.dlq.v1",
+        "evt.pay.payment.loan-payment-completed.v1"
+      ],
+      "consumer_groups": [
+        "cg.svc-ln-loan-lifecycle.loan-repayment-allocation.v1"
+      ],
+      "consumer_group_prefixes": [
+        "cg.svc-ln-loan-lifecycle."
+      ]
+    },
+    "svc-of-banking-metadata": {
+      "kubernetes_namespace": "open-finance",
+      "service_account": "banking-metadata-service",
+      "produce_topics": [
+        "evt.of.metadata.dlq.v1"
+      ],
+      "produce_topic_prefixes": [
+        "evt.of.metadata."
+      ],
+      "consume_topics": [
+        "evt.of.consent.authorized.v1",
+        "evt.of.consent.created.v1",
+        "evt.of.consent.expired.v1",
+        "evt.of.consent.revoked.v1",
+        "evt.of.metadata.dlq.v1"
+      ],
+      "consumer_groups": [
+        "cg.svc-of-banking-metadata.consent-projection.v1"
+      ],
+      "consumer_group_prefixes": [
+        "cg.svc-of-banking-metadata."
+      ]
+    },
+    "svc-of-business-financial-data": {
+      "kubernetes_namespace": "open-finance",
+      "service_account": "business-financial-data-service",
+      "produce_topics": [
+        "evt.of.corporate.dlq.v1"
+      ],
+      "produce_topic_prefixes": [
+        "evt.of.corporate."
+      ],
+      "consume_topics": [
+        "evt.of.consent.authorized.v1",
+        "evt.of.consent.created.v1",
+        "evt.of.consent.expired.v1",
+        "evt.of.consent.revoked.v1",
+        "evt.of.corporate.dlq.v1"
+      ],
+      "consumer_groups": [
+        "cg.svc-of-business-financial-data.consent-projection.v1"
+      ],
+      "consumer_group_prefixes": [
+        "cg.svc-of-business-financial-data."
+      ]
+    },
+    "svc-of-consent-authorization": {
+      "kubernetes_namespace": "open-finance",
+      "service_account": "consent-authorization-service",
+      "produce_topics": [
+        "evt.of.consent.authorized.v1",
+        "evt.of.consent.created.v1",
+        "evt.of.consent.expired.v1",
+        "evt.of.consent.revoked.v1"
+      ],
+      "produce_topic_prefixes": [
+        "evt.of.consent."
+      ],
       "consume_topics": [],
       "consumer_groups": [],
       "consumer_group_prefixes": []
+    },
+    "svc-of-payee-verification": {
+      "kubernetes_namespace": "open-finance",
+      "service_account": "payee-verification-service",
+      "produce_topics": [
+        "evt.of.payee.verification-completed.v1"
+      ],
+      "produce_topic_prefixes": [
+        "evt.of.payee."
+      ],
+      "consume_topics": [],
+      "consumer_groups": [],
+      "consumer_group_prefixes": []
+    },
+    "svc-of-personal-financial-data": {
+      "kubernetes_namespace": "open-finance",
+      "service_account": "personal-financial-data-service",
+      "produce_topics": [
+        "evt.of.account.dlq.v1"
+      ],
+      "produce_topic_prefixes": [
+        "evt.of.account."
+      ],
+      "consume_topics": [
+        "evt.of.account.dlq.v1",
+        "evt.of.consent.authorized.v1",
+        "evt.of.consent.created.v1",
+        "evt.of.consent.expired.v1",
+        "evt.of.consent.revoked.v1"
+      ],
+      "consumer_groups": [
+        "cg.svc-of-personal-financial-data.consent-projection.v1"
+      ],
+      "consumer_group_prefixes": [
+        "cg.svc-of-personal-financial-data."
+      ]
     },
     "svc-pay-initiation-settlement": {
       "kubernetes_namespace": "payments",

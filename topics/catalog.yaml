@@ -62,9 +62,22 @@ services:
     serviceAccount: payment-initiation-settlement-service
   svc-pay-request-to-pay:
     k8sNamespace: payments
-    # Assumed: the platform contract names no service account for this
-    # service and its repository has no Helm chart yet. Confirm with the squad.
-    serviceAccount: payment-request-to-pay-service
+    serviceAccount: payment-request-to-pay-service   # confirmed by the service thread
+  svc-of-consent-authorization:
+    k8sNamespace: open-finance
+    serviceAccount: consent-authorization-service
+  svc-of-payee-verification:
+    k8sNamespace: open-finance
+    serviceAccount: payee-verification-service
+  svc-of-personal-financial-data:
+    k8sNamespace: open-finance
+    serviceAccount: personal-financial-data-service
+  svc-of-business-financial-data:
+    k8sNamespace: open-finance
+    serviceAccount: business-financial-data-service
+  svc-of-banking-metadata:
+    k8sNamespace: open-finance
+    serviceAccount: banking-metadata-service
   svc-cus-profile-kyc:
     k8sNamespace: customer
     serviceAccount: customer-profile-kyc-service
@@ -104,8 +117,16 @@ namespaces:
       fintechbankx-lendingpayments-payment-orchestration-initiation-settlement,
       payment-infrastructure PaymentEventEnvelopeFactory + OutboxRelay
       (Proposed branch, not merged).
-    consumersStatus: unknown
-    consumers: []
+    consumersStatus: known
+    consumers:
+      - service: svc-ln-loan-lifecycle
+        group: cg.svc-ln-loan-lifecycle.loan-repayment-allocation.v1
+        topics: [evt.pay.payment.loan-payment-completed.v1]
+        dlq: evt.pay.payment.dlq.v1
+        evidence: >-
+          Confirmed by the loan-lifecycle service thread on 2026-10-08
+          (repayment allocation listener, in progress); not yet in code on
+          the scanned branches.
     topics:
       - {event: created, major: 1, eventType: Payments.Payment.Created.v1}
       - {event: processing-started, major: 1, eventType: Payments.Payment.ProcessingStarted.v1}
@@ -121,12 +142,13 @@ namespaces:
     owner: svc-pay-request-to-pay
     aggregate: PayRequest
     contract: asyncapi/svc-pay-request-to-pay.yaml
-    implementation: legacy-topic
+    implementation: outbox-relay
     implementationEvidence: >-
-      fintechbankx-lendingpayments-payment-orchestration-request-to-pay (main),
-      KafkaPayRequestNotificationAdapter publishes all three events to the
-      legacy topic rtp.pay_requests.v1 without the envelope; it does not write
-      these evt.* topics yet.
+      Outbox relay in progress (confirmed by the request-to-pay service
+      thread on 2026-10-08). On main, KafkaPayRequestNotificationAdapter still
+      publishes all three events to the legacy topic rtp.pay_requests.v1
+      without the envelope; that topic is retired after the dual-publish
+      steps in docs/architecture/TOPIC_NAMING_MIGRATION.md (see gaps).
     consumersStatus: unknown
     consumers: []
     topics:
@@ -188,21 +210,84 @@ namespaces:
     topics:
       - {event: screened, major: 1, eventType: Compliance.ComplianceScreening.Screened.v1}
 
+  # Open finance (confirmed by the open-finance service thread, 2026-10-08).
+  # No AsyncAPI contract for these services exists on any asyncapi-catalog
+  # branch yet, so the eventType values are assumed
+  # (OpenFinance.<Aggregate>.<Event>.v1) and must be checked against the
+  # contracts when they land.
+  - namespace: evt.of.consent
+    owner: svc-of-consent-authorization
+    aggregate: Consent
+    contract: asyncapi/svc-of-consent-authorization.yaml
+    implementation: outbox-relay
+    implementationEvidence: >-
+      Outbox relay in progress in the open-finance service thread; replaces
+      the monolith Debezium outbox topic openfinance.provider.consent.v1.
+      Not yet in code on the scanned branches.
+    # Retention 90 days, delete: consent projections in the consumers rebuild
+    # by replaying from earliest, so the topic must hold every consent still
+    # alive. The thread asked for 30 days minimum, 90 preferred, or
+    # compact+delete. compact+delete is the alternative if consents can live
+    # longer than 90 days; it needs a per-topic exception to the
+    # delete-only rule and a tombstone policy, so it is not used now.
+    consumersStatus: known
+    consumers:
+      - service: svc-of-personal-financial-data
+        group: cg.svc-of-personal-financial-data.consent-projection.v1
+        topics: [evt.of.consent.created.v1, evt.of.consent.authorized.v1, evt.of.consent.revoked.v1, evt.of.consent.expired.v1]
+        dlq: evt.of.account.dlq.v1
+        evidence: Confirmed by the open-finance service thread (consent projection, in progress); not yet in code.
+      - service: svc-of-business-financial-data
+        group: cg.svc-of-business-financial-data.consent-projection.v1
+        topics: [evt.of.consent.created.v1, evt.of.consent.authorized.v1, evt.of.consent.revoked.v1, evt.of.consent.expired.v1]
+        dlq: evt.of.corporate.dlq.v1
+        evidence: Confirmed by the open-finance service thread (consent projection, in progress); not yet in code.
+      - service: svc-of-banking-metadata
+        group: cg.svc-of-banking-metadata.consent-projection.v1
+        topics: [evt.of.consent.created.v1, evt.of.consent.authorized.v1, evt.of.consent.revoked.v1, evt.of.consent.expired.v1]
+        dlq: evt.of.metadata.dlq.v1
+        evidence: Confirmed by the open-finance service thread (consent projection, in progress); not yet in code.
+    topics:
+      - {event: created, major: 1, eventType: OpenFinance.Consent.Created.v1, partitions: 6, retentionMs: 7776000000}
+      - {event: authorized, major: 1, eventType: OpenFinance.Consent.Authorized.v1, partitions: 6, retentionMs: 7776000000}
+      - {event: revoked, major: 1, eventType: OpenFinance.Consent.Revoked.v1, partitions: 6, retentionMs: 7776000000}
+      - {event: expired, major: 1, eventType: OpenFinance.Consent.Expired.v1, partitions: 6, retentionMs: 7776000000}
+
+  - namespace: evt.of.payee
+    owner: svc-of-payee-verification
+    aggregate: PayeeVerification
+    contract: asyncapi/svc-of-payee-verification.yaml
+    implementation: outbox-relay
+    implementationEvidence: >-
+      Outbox relay in progress in the open-finance service thread; not yet in
+      code on the scanned branches.
+    consumersStatus: unknown
+    consumers: []
+    topics:
+      - {event: verification-completed, major: 1, eventType: OpenFinance.PayeeVerification.VerificationCompleted.v1, partitions: 6}
+
 # Namespaces in the bootstrap manifest with no catalog topics, and producers
 # that write to non-standard topics. Not provisioned; listed so the gap is visible.
 gaps:
   - service: svc-pay-recurring-mandates
     namespace: evt.pay.mandate
-    reason: No publisher in code; copied consent event classes are excluded from compilation.
+    reason: >-
+      Placeholder. Namespace and runtime identity confirmed (k8s namespace
+      payments, service account payment-recurring-mandates-service); topic
+      list pending from the service thread. No publisher in code yet.
   - service: svc-pay-bulk-orchestration
     namespace: evt.pay.bulk
-    reason: No publisher in code; copied consent event classes are excluded from compilation.
-  - service: svc-of-consent-authorization
-    namespace: evt.of.consent
     reason: >-
-      No publisher in the fintechbankx repository. The monolith publishes
-      open-finance provider events through a Debezium outbox connector to
-      openfinance.provider.consent.v1 (legacy name, no AsyncAPI contract).
+      Placeholder. Namespace and runtime identity confirmed (k8s namespace
+      payments, service account payment-bulk-orchestration-service); topic
+      list pending from the service thread. No publisher in code yet.
+  - service: svc-pay-request-to-pay
+    namespace: rtp.pay_requests.v1 (legacy)
+    reason: >-
+      Legacy topic still written by KafkaPayRequestNotificationAdapter on
+      main. To be retired once evt.pay.rtp.* is published through the outbox
+      and the dual-publish criteria in TOPIC_NAMING_MIGRATION.md are met;
+      kept under CREATE_LEGACY_TOPICS until then.
   - service: unassigned
     namespace: unassigned
     reason: >-
@@ -210,19 +295,23 @@ gaps:
       openfinance.provider.account-data.v1 (compacted) and the command topic
       openfinance.command.payment-execution.v1 with its retry/dlt topics have
       no owning fintechbankx service or contract yet. Needs an owner and an
-      evt.of.* namespace before they move here.
+      evt.of.* namespace before they move here. (openfinance.provider.consent.v1
+      is covered by evt.of.consent.)
   - service: svc-of-personal-financial-data
     namespace: evt.of.account
-    reason: No publisher in code and no AsyncAPI contract.
+    reason: >-
+      No events published. Only its consumer DLQ evt.of.account.dlq.v1 is
+      provisioned (consent projection).
   - service: svc-of-business-financial-data
     namespace: evt.of.corporate
-    reason: No publisher in code and no AsyncAPI contract.
-  - service: svc-of-payee-verification
-    namespace: evt.of.payee
-    reason: No publisher in code and no AsyncAPI contract.
+    reason: >-
+      No events published. Only its consumer DLQ evt.of.corporate.dlq.v1 is
+      provisioned (consent projection).
   - service: svc-of-banking-metadata
     namespace: evt.of.metadata
-    reason: No publisher in code and no AsyncAPI contract.
+    reason: >-
+      No events published. Only its consumer DLQ evt.of.metadata.dlq.v1 is
+      provisioned (consent projection).
   - service: svc-of-open-products-catalog
     namespace: evt.of.products
     reason: No publisher in code and no AsyncAPI contract.

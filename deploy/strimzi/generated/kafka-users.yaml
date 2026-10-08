@@ -170,6 +170,346 @@ spec:
           - Write
           - Describe
         host: "*"
+      - resource:
+          type: topic
+          name: evt.pay.payment.dlq.v1
+          patternType: literal
+        operations:
+          - Write
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.pay.payment.dlq.v1
+          patternType: literal
+        operations:
+          - Read
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.pay.payment.loan-payment-completed.v1
+          patternType: literal
+        operations:
+          - Read
+          - Describe
+        host: "*"
+      - resource:
+          type: group
+          name: cg.svc-ln-loan-lifecycle.
+          patternType: prefix
+        operations:
+          - Read
+          - Describe
+        host: "*"
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: svc-of-banking-metadata
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: fintechbankx
+    app.kubernetes.io/part-of: fintechbankx-event-streaming
+    app.kubernetes.io/managed-by: topic-catalog
+    fintechbankx.io/service-id: svc-of-banking-metadata
+    fintechbankx.io/workload-namespace: open-finance
+  annotations:
+    fintechbankx.io/service-account: banking-metadata-service
+spec:
+  authentication:
+    type: tls
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: evt.of.metadata.dlq.v1
+          patternType: literal
+        operations:
+          - Write
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.of.consent.authorized.v1
+          patternType: literal
+        operations:
+          - Read
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.of.consent.created.v1
+          patternType: literal
+        operations:
+          - Read
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.of.consent.expired.v1
+          patternType: literal
+        operations:
+          - Read
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.of.consent.revoked.v1
+          patternType: literal
+        operations:
+          - Read
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.of.metadata.dlq.v1
+          patternType: literal
+        operations:
+          - Read
+          - Describe
+        host: "*"
+      - resource:
+          type: group
+          name: cg.svc-of-banking-metadata.
+          patternType: prefix
+        operations:
+          - Read
+          - Describe
+        host: "*"
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: svc-of-business-financial-data
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: fintechbankx
+    app.kubernetes.io/part-of: fintechbankx-event-streaming
+    app.kubernetes.io/managed-by: topic-catalog
+    fintechbankx.io/service-id: svc-of-business-financial-data
+    fintechbankx.io/workload-namespace: open-finance
+  annotations:
+    fintechbankx.io/service-account: business-financial-data-service
+spec:
+  authentication:
+    type: tls
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: evt.of.corporate.dlq.v1
+          patternType: literal
+        operations:
+          - Write
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.of.consent.authorized.v1
+          patternType: literal
+        operations:
+          - Read
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.of.consent.created.v1
+          patternType: literal
+        operations:
+          - Read
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.of.consent.expired.v1
+          patternType: literal
+        operations:
+          - Read
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.of.consent.revoked.v1
+          patternType: literal
+        operations:
+          - Read
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.of.corporate.dlq.v1
+          patternType: literal
+        operations:
+          - Read
+          - Describe
+        host: "*"
+      - resource:
+          type: group
+          name: cg.svc-of-business-financial-data.
+          patternType: prefix
+        operations:
+          - Read
+          - Describe
+        host: "*"
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: svc-of-consent-authorization
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: fintechbankx
+    app.kubernetes.io/part-of: fintechbankx-event-streaming
+    app.kubernetes.io/managed-by: topic-catalog
+    fintechbankx.io/service-id: svc-of-consent-authorization
+    fintechbankx.io/workload-namespace: open-finance
+  annotations:
+    fintechbankx.io/service-account: consent-authorization-service
+spec:
+  authentication:
+    type: tls
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: evt.of.consent.authorized.v1
+          patternType: literal
+        operations:
+          - Write
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.of.consent.created.v1
+          patternType: literal
+        operations:
+          - Write
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.of.consent.expired.v1
+          patternType: literal
+        operations:
+          - Write
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.of.consent.revoked.v1
+          patternType: literal
+        operations:
+          - Write
+          - Describe
+        host: "*"
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: svc-of-payee-verification
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: fintechbankx
+    app.kubernetes.io/part-of: fintechbankx-event-streaming
+    app.kubernetes.io/managed-by: topic-catalog
+    fintechbankx.io/service-id: svc-of-payee-verification
+    fintechbankx.io/workload-namespace: open-finance
+  annotations:
+    fintechbankx.io/service-account: payee-verification-service
+spec:
+  authentication:
+    type: tls
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: evt.of.payee.verification-completed.v1
+          patternType: literal
+        operations:
+          - Write
+          - Describe
+        host: "*"
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: svc-of-personal-financial-data
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: fintechbankx
+    app.kubernetes.io/part-of: fintechbankx-event-streaming
+    app.kubernetes.io/managed-by: topic-catalog
+    fintechbankx.io/service-id: svc-of-personal-financial-data
+    fintechbankx.io/workload-namespace: open-finance
+  annotations:
+    fintechbankx.io/service-account: personal-financial-data-service
+spec:
+  authentication:
+    type: tls
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: evt.of.account.dlq.v1
+          patternType: literal
+        operations:
+          - Write
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.of.account.dlq.v1
+          patternType: literal
+        operations:
+          - Read
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.of.consent.authorized.v1
+          patternType: literal
+        operations:
+          - Read
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.of.consent.created.v1
+          patternType: literal
+        operations:
+          - Read
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.of.consent.expired.v1
+          patternType: literal
+        operations:
+          - Read
+          - Describe
+        host: "*"
+      - resource:
+          type: topic
+          name: evt.of.consent.revoked.v1
+          patternType: literal
+        operations:
+          - Read
+          - Describe
+        host: "*"
+      - resource:
+          type: group
+          name: cg.svc-of-personal-financial-data.
+          patternType: prefix
+        operations:
+          - Read
+          - Describe
+        host: "*"
 ---
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
