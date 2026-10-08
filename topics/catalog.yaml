@@ -236,6 +236,7 @@ namespaces:
       - {event: credit-reserved, major: 1, eventType: Customer.Customer.CreditReserved.v1}
       - {event: credit-released, major: 1, eventType: Customer.Customer.CreditReleased.v1}
       - {event: credit-score-updated, major: 1, eventType: Customer.Customer.CreditScoreUpdated.v1}
+      - {event: kyc-status-changed, major: 1, eventType: Customer.Customer.KycStatusChanged.v1}   # customer thread 2026-10-08 (KYC status owned by customer)
 
   # Added on request of the risk/compliance thread. Their AsyncAPI contracts
   # are in asyncapi-catalog PR #11 (stacked on #10); eventTypes confirmed by

@@ -94,6 +94,14 @@ spec:
           - Write
           - Describe
         host: "*"
+      - resource:
+          type: topic
+          name: evt.cus.customer.kyc-status-changed.v1
+          patternType: literal
+        operations:
+          - Write
+          - Describe
+        host: "*"
 ---
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser

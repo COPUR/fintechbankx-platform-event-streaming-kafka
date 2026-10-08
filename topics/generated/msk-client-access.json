@@ -24,7 +24,8 @@
         "evt.cus.customer.credit-limit-updated.v1",
         "evt.cus.customer.credit-released.v1",
         "evt.cus.customer.credit-reserved.v1",
-        "evt.cus.customer.credit-score-updated.v1"
+        "evt.cus.customer.credit-score-updated.v1",
+        "evt.cus.customer.kyc-status-changed.v1"
       ],
       "produce_topic_prefixes": [
         "evt.cus.customer."

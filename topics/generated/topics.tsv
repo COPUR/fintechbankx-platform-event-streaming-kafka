@@ -33,6 +33,7 @@ evt.cus.customer.credit-limit-updated.v1	event	3	3	2	delete	604800000	1048576
 evt.cus.customer.credit-reserved.v1	event	3	3	2	delete	604800000	1048576
 evt.cus.customer.credit-released.v1	event	3	3	2	delete	604800000	1048576
 evt.cus.customer.credit-score-updated.v1	event	3	3	2	delete	604800000	1048576
+evt.cus.customer.kyc-status-changed.v1	event	3	3	2	delete	604800000	1048576
 evt.rsk.risk.assessed.v1	event	3	3	2	delete	604800000	1048576
 evt.cmp.compliance.screened.v1	event	3	3	2	delete	604800000	1048576
 evt.of.consent.created.v1	event	6	3	2	delete	7776000000	1048576
