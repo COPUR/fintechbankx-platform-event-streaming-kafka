@@ -35,6 +35,12 @@ Optional local cross-check against a checkout of `fintechbankx-governance-api-co
 node scripts/catalog/generate.mjs --check --asyncapi <asyncapi-catalog-checkout>/asyncapi
 ```
 
+It compares each aggregate channel of `asyncapi/<owner>.yaml` with the catalog: address, partitions, replicas,
+`retention.ms`, `cleanup.policy`, the `eventType` consts of its messages, and the consumers the contract declares.
+Consumers are read from `x-consumers` on the channel and from `info.x-consumers` (entries name their `channels` by id,
+address or `$ref`; an entry without `channels` covers every aggregate channel), with the keys `serviceId`,
+`consumerGroup`, `deadLetterTopic` or their kebab-case forms `service-id`, `consumer-group`, `dead-letter-topic`.
+
 ## Rules the validator enforces
 
 - Event topic `evt.<ctx>.<aggregate>.v<major>`, one per aggregate namespace and topic major, declared as

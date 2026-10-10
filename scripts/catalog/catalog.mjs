@@ -787,14 +787,58 @@ export function channelEventTypes(spec, channel) {
   return found;
 }
 
+/** A key of a contract's x- extension object in either spelling: camelCase (serviceId) or kebab-case (service-id). */
+function extensionValue(obj, camelKey) {
+  if (!obj || typeof obj !== "object") {
+    return undefined;
+  }
+  return obj[camelKey] ?? obj[camelKey.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)];
+}
+
+/**
+ * Consumers a contract declares for one of its channels, or null when it declares none at all.
+ *
+ * Read from the channel's x-consumers and from info.x-consumers (the shape of asyncapi-catalog #12). An
+ * info.x-consumers entry names its channels by channel id, address or $ref; an entry without channels covers
+ * every aggregate channel of the contract. Once info.x-consumers is present it is the contract's whole consumer
+ * list, so a channel no entry names has no consumers. Entry keys: serviceId or service-id, consumerGroup or
+ * consumer-group, deadLetterTopic or dead-letter-topic. A consumer declared in both places counts once.
+ */
+function declaredConsumers(spec, channelId, channel) {
+  const onChannel = channel?.["x-consumers"];
+  const inInfo = spec?.info?.["x-consumers"];
+  if (!Array.isArray(onChannel) && !Array.isArray(inInfo)) {
+    return null;
+  }
+  const names = new Set([channelId, channel?.address, `#/channels/${channelId.replace(/~/g, "~0").replace(/\//g, "~1")}`]);
+  const covers = (entry) => {
+    if (entry?.channels === undefined) {
+      return true;
+    }
+    return [].concat(entry.channels).some((x) => names.has(typeof x === "string" ? x : x?.$ref));
+  };
+  const entries = [...(Array.isArray(onChannel) ? onChannel : []), ...(Array.isArray(inInfo) ? inInfo.filter(covers) : [])];
+  const unique = new Map();
+  for (const c of entries) {
+    const consumer = {
+      service: extensionValue(c, "serviceId"),
+      group: extensionValue(c, "consumerGroup"),
+      dlq: extensionValue(c, "deadLetterTopic"),
+    };
+    unique.set(`${consumer.service}|${consumer.group}|${consumer.dlq}`, consumer);
+  }
+  return [...unique.values()];
+}
+
 /**
  * Compares catalog topics with the channels of asyncapi/<owner>.yaml files in
  * a checkout of the AsyncAPI catalog. Returns error strings.
  *
  * One aggregate channel per topic: address, partitions, replicas, retention,
  * cleanup policy, event types (eventType consts of its messages) and declared
- * x-consumers must agree. DLQs are consumer-owned and modelled as a message in
- * the contracts, so DLQ channels are not compared.
+ * consumers (channel x-consumers or info.x-consumers, see declaredConsumers)
+ * must agree. DLQs are consumer-owned and modelled as a message in the
+ * contracts, so DLQ channels are not compared.
  */
 export function crossCheckAsyncApi(catalog, asyncapiDir) {
   const errors = [];
@@ -810,7 +854,7 @@ export function crossCheckAsyncApi(catalog, asyncapiDir) {
       errors.push(`${ns.namespace}: contract declares x-event-namespace ${spec.info["x-event-namespace"]}`);
     }
     const channels = new Map();
-    for (const ch of Object.values(spec?.channels ?? {})) {
+    for (const [id, ch] of Object.entries(spec?.channels ?? {})) {
       if (DLQ_TOPIC_PATTERN.test(ch?.address ?? "")) {
         continue;
       }
@@ -818,14 +862,14 @@ export function crossCheckAsyncApi(catalog, asyncapiDir) {
       if (typeof ch?.address === "string" && !ch.address.startsWith(`${ns.namespace}.`)) {
         continue;
       }
-      channels.set(ch.address, ch);
+      channels.set(ch.address, { id, ch });
     }
     for (const t of resolved.filter((x) => x.namespace === ns.namespace && x.kind === "event")) {
-      const ch = channels.get(t.name);
-      if (!ch) {
+      if (!channels.has(t.name)) {
         errors.push(`${t.name}: no channel in ${ns.owner}.yaml`);
         continue;
       }
+      const { id, ch } = channels.get(t.name);
       channels.delete(t.name);
       const b = ch.bindings?.kafka ?? {};
       if (b.partitions !== undefined && b.partitions !== t.partitions) {
@@ -853,9 +897,10 @@ export function crossCheckAsyncApi(catalog, asyncapiDir) {
           errors.push(`${t.name}: event type ${e} in contract, not in catalog`);
         }
       }
-      if (Array.isArray(ch["x-consumers"])) {
+      const declared = declaredConsumers(spec, id, ch);
+      if (declared) {
         const fmt = (list) => list.map((c) => `${c.service}|${c.group}|${c.dlq}`).sort().join(", ");
-        const contract = fmt(ch["x-consumers"].map((c) => ({ service: c.serviceId, group: c.consumerGroup, dlq: c.deadLetterTopic })));
+        const contract = fmt(declared);
         const catalogSide = fmt(t.consumers);
         if (contract !== catalogSide) {
           errors.push(`${t.name}: x-consumers [${contract}] in contract, [${catalogSide}] in catalog`);

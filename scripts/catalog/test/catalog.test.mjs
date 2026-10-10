@@ -495,6 +495,95 @@ test("AsyncAPI cross-check compares the aggregate channel, its settings and its 
   }
 });
 
+// A loan contract that matches fixture() on everything but consumers.
+function loanSpec({ info = {}, channel = {} } = {}) {
+  return {
+    asyncapi: "3.0.0",
+    info: { "x-event-namespace": "evt.ln.loan", ...info },
+    channels: {
+      loan: {
+        address: "evt.ln.loan.v1",
+        messages: {
+          LoanCreated: { $ref: "#/components/messages/LoanCreated" },
+          LoanDisbursed: { $ref: "#/components/messages/LoanDisbursed" },
+          LoanPaymentMade: { $ref: "#/components/messages/LoanPaymentMade" },
+        },
+        bindings: { kafka: { partitions: 3, topicConfiguration: { "retention.ms": 2592000000, "cleanup.policy": ["delete"] } } },
+        ...channel,
+      },
+      loanDlq: { address: "evt.ln.loan.dlq.v1" },
+    },
+    components: {
+      messages: {
+        LoanCreated: loanMessage("Lending.Loan.Created.v1"),
+        LoanDisbursed: loanMessage("Lending.Loan.Disbursed.v1"),
+        LoanPaymentMade: loanMessage("Lending.Loan.PaymentMade.v1"),
+      },
+    },
+  };
+}
+
+function crossCheckSpec(spec, catalog = fixture()) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "catalog-asyncapi-"));
+  try {
+    fs.writeFileSync(path.join(dir, "svc-ln-loan-lifecycle.yaml"), YAML.stringify(spec));
+    return crossCheckAsyncApi(catalog, dir);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// The fixture's one consumer, as the contracts spell it.
+const RISK = "svc-rsk-decisioning|cg.svc-rsk-decisioning.loan-exposure.v1|evt.rsk.risk.dlq.v1";
+const kebabRisk = (extra = {}) => ({
+  "service-id": "svc-rsk-decisioning",
+  "consumer-group": "cg.svc-rsk-decisioning.loan-exposure.v1",
+  "dead-letter-topic": "evt.rsk.risk.dlq.v1",
+  ...extra,
+});
+
+test("AsyncAPI cross-check reads info.x-consumers with kebab-case keys (asyncapi-catalog #12 shape)", () => {
+  assert.deepEqual(crossCheckSpec(loanSpec()), [], "no consumers declared: nothing to compare");
+  // The consent contract's shape: info.x-consumers, kebab-case keys, channels by channel id.
+  assert.deepEqual(crossCheckSpec(loanSpec({ info: { "x-consumers": [kebabRisk({ domain: "risk", channels: ["loan"] })] } })), []);
+  // A channel can also be named by its address or by a $ref; an entry without channels covers every aggregate channel.
+  assert.deepEqual(crossCheckSpec(loanSpec({ info: { "x-consumers": [kebabRisk({ channels: ["evt.ln.loan.v1"] })] } })), []);
+  assert.deepEqual(crossCheckSpec(loanSpec({ info: { "x-consumers": [kebabRisk({ channels: [{ $ref: "#/channels/loan" }] })] } })), []);
+  assert.deepEqual(crossCheckSpec(loanSpec({ info: { "x-consumers": [kebabRisk()] } })), []);
+
+  const wrongGroup = crossCheckSpec(loanSpec({ info: { "x-consumers": [kebabRisk({ "consumer-group": "cg.svc-rsk-decisioning.other.v1", channels: ["loan"] })] } }));
+  assert.deepEqual(wrongGroup, [
+    `evt.ln.loan.v1: x-consumers [svc-rsk-decisioning|cg.svc-rsk-decisioning.other.v1|evt.rsk.risk.dlq.v1] in contract, [${RISK}] in catalog`,
+  ]);
+  const wrongDlq = crossCheckSpec(loanSpec({ info: { "x-consumers": [kebabRisk({ "dead-letter-topic": "evt.ln.loan.dlq.v1" })] } }));
+  assert.equal(wrongDlq.length, 1, wrongDlq.join("\n"));
+  assert.match(wrongDlq[0], /x-consumers \[svc-rsk-decisioning\|cg\.svc-rsk-decisioning\.loan-exposure\.v1\|evt\.ln\.loan\.dlq\.v1\] in contract/);
+
+  // info.x-consumers is the contract's whole consumer list: a catalog consumer missing from it is reported.
+  const elsewhere = crossCheckSpec(loanSpec({ info: { "x-consumers": [kebabRisk({ channels: ["loanDlq"] })] } }));
+  assert.deepEqual(elsewhere, [`evt.ln.loan.v1: x-consumers [] in contract, [${RISK}] in catalog`]);
+  assert.deepEqual(crossCheckSpec(loanSpec({ info: { "x-consumers": [] } })), [`evt.ln.loan.v1: x-consumers [] in contract, [${RISK}] in catalog`]);
+});
+
+test("AsyncAPI cross-check keeps the camelCase spellings and accepts kebab-case on channel x-consumers", () => {
+  const camel = { serviceId: "svc-rsk-decisioning", consumerGroup: "cg.svc-rsk-decisioning.loan-exposure.v1", deadLetterTopic: "evt.rsk.risk.dlq.v1" };
+  assert.deepEqual(crossCheckSpec(loanSpec({ channel: { "x-consumers": [camel] } })), []);
+  assert.deepEqual(crossCheckSpec(loanSpec({ info: { "x-consumers": [{ ...camel, channels: ["loan"] }] } })), []);
+  assert.deepEqual(crossCheckSpec(loanSpec({ channel: { "x-consumers": [kebabRisk()] } })), []);
+  // Declared on the channel and in info: one consumer, not two.
+  assert.deepEqual(crossCheckSpec(loanSpec({ info: { "x-consumers": [kebabRisk({ channels: ["loan"] })] }, channel: { "x-consumers": [camel] } })), []);
+
+  const extra = crossCheckSpec(
+    loanSpec({
+      info: { "x-consumers": [kebabRisk({ channels: ["loan"] })] },
+      channel: { "x-consumers": [{ "service-id": "svc-pay-initiation-settlement", "consumer-group": "cg.svc-pay-initiation-settlement.loan.v1", "dead-letter-topic": "evt.pay.payment.dlq.v1" }] },
+    }),
+  );
+  assert.deepEqual(extra, [
+    `evt.ln.loan.v1: x-consumers [svc-pay-initiation-settlement|cg.svc-pay-initiation-settlement.loan.v1|evt.pay.payment.dlq.v1, ${RISK}] in contract, [${RISK}] in catalog`,
+  ]);
+});
+
 function createTopics(env) {
   return spawnSync("bash", [path.join(repoRoot, "scripts/kafka/create-topics.sh")], {
     env: { PATH: process.env.PATH, DRY_RUN: "true", ...env },
