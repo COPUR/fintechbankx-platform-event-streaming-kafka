@@ -44,7 +44,7 @@ to start when the assertion fails:
   `AWS_MSK_IAM`, profile `kafka-msk`) or `SSL` (Strimzi mutual TLS, profile `kafka-strimzi`).
 - `PLAINTEXT`, `SASL_PLAINTEXT` and an unset protocol stop startup.
 - `ssl.endpoint.identification.algorithm` stays `https`, the Kafka client default (host name verification is never
-  turned off; no service sets it, and none checks it explicitly yet).
+  turned off; no service sets it, and only consent and payee check it explicitly, refusing an empty or `none` value).
 
 The same assertion checks the database URL (`sslmode=verify-full`); see the chart README section "Service-side TLS
 assertion" in `fintechbankx-platform-delivery-iac-cicd-templates`.
