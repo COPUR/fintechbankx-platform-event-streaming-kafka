@@ -54,8 +54,9 @@ Status, as checked against the services' open pull request branches in October 2
   default enforces and only the `local` profile switches it off.
 - `fintechbankx-customer-profile-kyc-core`, `fintechbankx-riskcompliance-risk-decisioning-core` and
   `fintechbankx-riskcompliance-compliance-evidence-core` ship a `KafkaTlsGuard` (with a `DatabaseTlsGuard`) that runs
-  while the outbox relay is on and `DB_SSL_ROOT_CERT` is set (always on a deployed chart), with `kafka-msk` and
-  `kafka-strimzi` profiles. Risk and compliance accept only `SASL_SSL` (Amazon MSK), customer `SASL_SSL` or `SSL`.
+  while the outbox relay is on and `DB_SSL_ROOT_CERT` is set, with `kafka-msk` and `kafka-strimzi` profiles. The
+  shared chart sets `DB_SSL_ROOT_CERT` only while `databaseCa.enabled` (the default); with it off the guards are not
+  registered. Risk and compliance accept only `SASL_SSL` (Amazon MSK), customer `SASL_SSL` or `SSL`.
   They have no `fintechbankx.tls.enforce` and no `local` profile file: without `DB_SSL_ROOT_CERT` (local runs, tests)
   the guards skip.
 - The open-finance services (`fintechbankx-openfinance-*`) check `SASL_SSL` or `SSL` under the `aws` profile their
@@ -63,15 +64,24 @@ Status, as checked against the services' open pull request branches in October 2
   `application-kafka-strimzi.yml` where they use Kafka. Not activating `aws` (local runs, tests) turns the check off.
   The shared chart never renders `aws`.
 
-Every other service, and every new one, adds the assertion in the first shape; the services in the second and third
-groups are aligning with it.
+Every other service, and every new one, adds the assertion in the first shape. Moving the second and third groups to it
+is proposed, not started: none of their branches has `fintechbankx.tls.enforce` or `application-local.yml`.
 
 The laptop runtime (`PLAINTEXT` on `localhost:29092`, or `kafka:9092` inside the shared compose stack of
-`fintechbankx-platform-delivery-iac-cicd-templates`) runs only under the `local` profile, so a service started against
-it sets `SPRING_PROFILES_ACTIVE=local` (the shared compose stack does this for every service). The `local` profile
-(`application-local.yml`, with the test resources) is the one place that sets the assertion's off switch
-`fintechbankx.tls.enforce: false`. Deployed charts refuse both that switch (`FINTECHBANKX_TLS_ENFORCE` in any spelling)
-and the `local` profile.
+`fintechbankx-platform-delivery-iac-cicd-templates`) is refused by the assertion outside local runs, so a service
+started against it sets `SPRING_PROFILES_ACTIVE=local` (the shared compose stack does this for every service). In the
+first group the `local` profile (`application-local.yml`, with the test resources) is the one place that sets the
+assertion's off switch `fintechbankx.tls.enforce: false`. The second group has no such switch: its guards skip while
+`DB_SSL_ROOT_CERT` is unset, and the shared compose stack does not set it. The third group's check is off while the
+`aws` profile is not active.
+
+The shared chart (`fintechbankx-service`) refuses the switch in every Spring spelling (`FINTECHBANKX_TLS_ENFORCE`,
+`fintechbankx.tls.enforce`, `fintechbankx.tls[enforce]`, ...) and every `spring.profiles.*` name, so it can set
+neither the switch nor `local`. A service deployed with its own chart depends on that chart's name check, which is
+narrower: in October 2026 the loan-lifecycle-core chart compares only the upper-cased key with
+`FINTECHBANKX_TLS_ENFORCE`, so a `config` key `fintechbankx.tls.enforce` still reaches the pod; the payment charts also
+read `.` and `-` as `_`, but not the bracket form; the customer, risk, compliance and open-finance charts do not check
+the name, which their code does not read.
 
 ### Amazon MSK: `application-kafka-msk.yml`
 
