@@ -14,7 +14,7 @@ named by its `eventType` (envelope field and record header), not by the topic. T
 |---|---|---|---|---|
 | AWS (Amazon MSK) | `bootstrap_brokers_sasl_iam` output of `msk-cluster` (port 9098) | `SASL_SSL` | `AWS_MSK_IAM` | The pod's IRSA role (`system:serviceaccount:<ns>:<sa>`) with the policy from `msk-client-access` |
 | In-cluster (Strimzi) | `fintechbankx-kafka-bootstrap.kafka.svc.cluster.local:9093` | `SSL` | TLS client certificate | `KafkaUser` named after the service id, ACLs from the catalog |
-| Laptop ([`deploy/local`](../../deploy/local/docker-compose.yml)) | `localhost:29092` | `PLAINTEXT` | none | none (local only) |
+| Laptop ([`deploy/local`](../../deploy/local/docker-compose.yml)) | `localhost:29092` | `PLAINTEXT` | none | none (local only; the service runs with `SPRING_PROFILES_ACTIVE=local`) |
 
 Keep `application.yml` runtime-neutral (as the service repositories already do with `KAFKA_BOOTSTRAP_SERVERS` and
 `KAFKA_SECURITY_PROTOCOL`) and add the authentication in a Spring profile selected per environment
@@ -23,24 +23,32 @@ Keep `application.yml` runtime-neutral (as the service repositories already do w
 ### Profile selection
 
 The service does not choose its Kafka profile. On the shared chart (`charts/fintechbankx-service` in
-`fintechbankx-platform-delivery-iac-cicd-templates`) the profile comes from the chart value `kafka.runtime`, which is
-`msk` or `strimzi` and renders `SPRING_PROFILES_ACTIVE=kafka-msk` or `kafka-strimzi`. The chart refuses any
-user-set `spring.profiles.*` name (in `config`, `extraEnv`, `SPRING_APPLICATION_JSON` or JVM options), so the profile
-cannot be overridden or extended from values. Services with their own chart follow the same rule: render only
+`fintechbankx-platform-delivery-iac-cicd-templates`) the profile comes from the chart value `kafka.runtime`: `msk`
+renders `SPRING_PROFILES_ACTIVE=kafka-msk`, `strimzi` renders `kafka-strimzi`. The default is `""`, which renders no
+profile and is meant for services without Kafka; a Kafka service must set `kafka.runtime`, and the chart fails when a
+`security.protocol` name (for example `KAFKA_SECURITY_PROTOCOL`) is set while `kafka.runtime` is `""`. The chart
+refuses any user-set `spring.profiles.*` name (in `config`, `extraEnv`, `SPRING_APPLICATION_JSON` or JVM options), so
+the profile cannot be overridden or extended from values. Services with their own chart follow the same rule: render only
 `kafka-msk` or `kafka-strimzi`, and refuse `local`.
 
 ### Startup TLS assertion
 
-Every service asserts its Kafka client configuration at startup, and refuses to start when the assertion fails:
+Status: **Proposed, not implemented.** No service repository ships this assertion yet, nor the
+`fintechbankx.tls.enforce` property or the `application-kafka-msk.yml` / `application-kafka-strimzi.yml` profiles below;
+until a service adds them, `kafka.runtime` activates a profile its image does not contain (Spring ignores it) and only
+the chart checks what it renders. Each service is to assert its Kafka client configuration at startup, and refuse to
+start when the assertion fails:
 
 - Every producer, consumer, admin and Streams client uses `security.protocol` `SASL_SSL` (Amazon MSK with
   `AWS_MSK_IAM`) or `SSL` (Strimzi mutual TLS).
 - `PLAINTEXT`, `SASL_PLAINTEXT` and an unset protocol stop startup.
 - `ssl.endpoint.identification.algorithm` stays `https` (host name verification is never turned off).
 
-The laptop runtime (`PLAINTEXT` on `localhost:29092`) runs only under the `local` profile. The `local` profile (with
-test resources) is the one place that sets the assertion's off switch `fintechbankx.tls.enforce=false`. Deployed charts
-refuse both that switch and the `local` profile.
+The laptop runtime (`PLAINTEXT` on `localhost:29092`, or `kafka:9092` inside the shared compose stack of
+`fintechbankx-platform-delivery-iac-cicd-templates`) runs only under the `local` profile, so a service started against
+it sets `SPRING_PROFILES_ACTIVE=local` (the shared compose stack does this for every service). The `local` profile
+(with test resources) is the one place that sets the assertion's off switch `fintechbankx.tls.enforce=false`. Deployed
+charts refuse both that switch and the `local` profile.
 
 ### Amazon MSK: `application-kafka-msk.yml`
 

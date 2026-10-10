@@ -4,6 +4,8 @@
 #
 #   docker compose -f deploy/local/docker-compose.yml up -d
 #   services: KAFKA_BOOTSTRAP_SERVERS=localhost:29092 KAFKA_SECURITY_PROTOCOL=PLAINTEXT
+#             SPRING_PROFILES_ACTIVE=local (PLAINTEXT is allowed only under the local
+#             profile; docs/guides/SERVICE_CLIENT_CONFIGURATION.md)
 #
 # Replaces the monolith's zookeeper + kafka + kafka-topic-init services.
 name: fintechbankx-kafka-local
