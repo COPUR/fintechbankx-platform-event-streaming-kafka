@@ -78,10 +78,12 @@ is proposed, not started: none of their branches has `fintechbankx.tls.enforce` 
 The laptop runtime (`PLAINTEXT` on `localhost:29092`, or `kafka:9092` inside the shared compose stack of
 `fintechbankx-platform-delivery-iac-cicd-templates`) is refused by the assertion outside local runs, so a service
 started against it sets `SPRING_PROFILES_ACTIVE=local` (the shared compose stack does this for every service). In the
-first group the `local` profile (`application-local.yml`, with the test resources) is the one place that sets the
-assertion's off switch `fintechbankx.tls.enforce: false`. The second group has no such switch: its guards skip while
-`DB_SSL_ROOT_CERT` is unset, and the shared compose stack does not set it. The third group's check is off while
-`FBX_DEPLOYED` is unset and none of the profiles that turn it on (above) is active, as under `local` alone.
+first group the `local` profile (`application-local.yml`, with the test resources) is the one place in the service's
+own configuration that sets the assertion's off switch `fintechbankx.tls.enforce: false` (a
+payment-initiation-settlement deployment can still set it through the configtree import described at the end of this
+section). The second group has no such switch: its guards skip while `DB_SSL_ROOT_CERT` is unset, and the shared
+compose stack does not set it. The third group's check is off while `FBX_DEPLOYED` is unset and none of the profiles
+that turn it on (above) is active, as under `local` alone.
 
 The shared chart (`fintechbankx-service`) refuses the switch and every `spring.profiles.*` name, so values can set
 neither the switch nor `local`. The exact names and spellings it refuses are the name rules in the chart README
