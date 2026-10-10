@@ -28,8 +28,10 @@ renders `SPRING_PROFILES_ACTIVE=kafka-msk`, `strimzi` renders `kafka-strimzi`. T
 profile and is meant for services without Kafka; a Kafka service must set `kafka.runtime`, and the chart fails when a
 `security.protocol` name (for example `KAFKA_SECURITY_PROTOCOL`) is set while `kafka.runtime` is `""`. The chart
 refuses any user-set `spring.profiles.*` name (in `config`, `extraEnv`, `SPRING_APPLICATION_JSON` or JVM options), so
-the profile cannot be overridden or extended from values. Services with their own chart follow the same rule: render
-the Kafka profile only as `kafka-msk` or `kafka-strimzi` (the open-finance charts add `aws`), and refuse `local`.
+the profile cannot be overridden or extended from values. Services with their own chart follow the same rule: they
+render the Kafka profile only as `kafka-msk` or `kafka-strimzi` (the consent, corporate and payee charts add `aws`;
+the atm and products charts, which have no Kafka client, render `aws` alone), and the guard they vendor (see the end of
+the next section) refuses every user-set `spring.profiles.*` name, so `local` cannot be added.
 
 ### Startup TLS assertion
 
@@ -75,13 +77,16 @@ assertion's off switch `fintechbankx.tls.enforce: false`. The second group has n
 `DB_SSL_ROOT_CERT` is unset, and the shared compose stack does not set it. The third group's check is off while the
 `aws` profile is not active.
 
-The shared chart (`fintechbankx-service`) refuses the switch in every Spring spelling (`FINTECHBANKX_TLS_ENFORCE`,
-`fintechbankx.tls.enforce`, `fintechbankx.tls[enforce]`, ...) and every `spring.profiles.*` name, so it can set
-neither the switch nor `local`. A service deployed with its own chart depends on that chart's name check, which is
-narrower: in October 2026 the loan-lifecycle-core chart compares only the upper-cased key with
-`FINTECHBANKX_TLS_ENFORCE`, so a `config` key `fintechbankx.tls.enforce` still reaches the pod; the payment charts also
-read `.` and `-` as `_`, but not the bracket form; the customer, risk, compliance and open-finance charts do not check
-the name, which their code does not read.
+The shared chart (`fintechbankx-service`) refuses the switch and every `spring.profiles.*` name, so values can set
+neither the switch nor `local`. The exact names and spellings it refuses are the name rules in the chart README
+section "Datasource and TLS guard" (`charts/fintechbankx-service/README.md` in
+`fintechbankx-platform-delivery-iac-cicd-templates`); this guide does not repeat them. The service charts vendor that
+guard (same README, section "Vendoring the guard"): each copies the shared chart's `templates/_helpers.tpl` unchanged
+and calls `fbx.guard` through an adapter that maps the chart's own value names to the guard's input routes, so it
+refuses the same names on every route the adapter maps. As checked against the open pull request branches in October
+2026, the charts of all the services named in this section do so: loan-lifecycle-core, the four payment-orchestration
+charts, customer, risk, compliance and the seven open-finance charts. A service that does not vendor the guard depends
+on its own chart's check.
 
 ### Amazon MSK: `application-kafka-msk.yml`
 
