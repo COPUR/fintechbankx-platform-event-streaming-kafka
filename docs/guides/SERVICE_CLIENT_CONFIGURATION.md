@@ -28,27 +28,50 @@ renders `SPRING_PROFILES_ACTIVE=kafka-msk`, `strimzi` renders `kafka-strimzi`. T
 profile and is meant for services without Kafka; a Kafka service must set `kafka.runtime`, and the chart fails when a
 `security.protocol` name (for example `KAFKA_SECURITY_PROTOCOL`) is set while `kafka.runtime` is `""`. The chart
 refuses any user-set `spring.profiles.*` name (in `config`, `extraEnv`, `SPRING_APPLICATION_JSON` or JVM options), so
-the profile cannot be overridden or extended from values. Services with their own chart follow the same rule: render only
-`kafka-msk` or `kafka-strimzi`, and refuse `local`.
+the profile cannot be overridden or extended from values. Services with their own chart follow the same rule: render
+the Kafka profile only as `kafka-msk` or `kafka-strimzi` (the open-finance charts add `aws`), and refuse `local`.
 
 ### Startup TLS assertion
 
-Status: **Proposed, not implemented.** No service repository ships this assertion yet, nor the
-`fintechbankx.tls.enforce` property or the `application-kafka-msk.yml` / `application-kafka-strimzi.yml` profiles below;
-until a service adds them, `kafka.runtime` activates a profile its image does not contain (Spring ignores it) and only
-the chart checks what it renders. Each service is to assert its Kafka client configuration at startup, and refuse to
-start when the assertion fails:
+Guardrail 4a requires every service to assert its Kafka client configuration at startup, on by default, and to refuse
+to start when the assertion fails:
 
 - Every producer, consumer, admin and Streams client uses `security.protocol` `SASL_SSL` (Amazon MSK with
-  `AWS_MSK_IAM`) or `SSL` (Strimzi mutual TLS).
+  `AWS_MSK_IAM`, profile `kafka-msk`) or `SSL` (Strimzi mutual TLS, profile `kafka-strimzi`).
 - `PLAINTEXT`, `SASL_PLAINTEXT` and an unset protocol stop startup.
-- `ssl.endpoint.identification.algorithm` stays `https` (host name verification is never turned off).
+- `ssl.endpoint.identification.algorithm` stays `https`, the Kafka client default (host name verification is never
+  turned off; no service sets it, and none checks it explicitly yet).
+
+The same assertion checks the database URL (`sslmode=verify-full`); see the chart README section "Service-side TLS
+assertion" in `fintechbankx-platform-delivery-iac-cicd-templates`.
+
+Status, as checked against the services' open pull request branches in October 2026:
+
+- `fintechbankx-lendingpayments-loan-lifecycle-core` and the payment-orchestration repositories
+  `-initiation-settlement`, `-bulk-orchestration`, `-recurring-mandates` and `-request-to-pay` ship it in the shape
+  this guide describes: the property `fintechbankx.tls.enforce` (`true` in `application.yml`), the profiles
+  `application-kafka-msk.yml`, `application-kafka-strimzi.yml` and `application-local.yml`, and a test that the
+  default enforces and only the `local` profile switches it off.
+- `fintechbankx-customer-profile-kyc-core`, `fintechbankx-riskcompliance-risk-decisioning-core` and
+  `fintechbankx-riskcompliance-compliance-evidence-core` ship a `KafkaTlsGuard` (with a `DatabaseTlsGuard`) that runs
+  while the outbox relay is on and `DB_SSL_ROOT_CERT` is set (always on a deployed chart), with `kafka-msk` and
+  `kafka-strimzi` profiles. Risk and compliance accept only `SASL_SSL` (Amazon MSK), customer `SASL_SSL` or `SSL`.
+  They have no `fintechbankx.tls.enforce` and no `local` profile file: without `DB_SSL_ROOT_CERT` (local runs, tests)
+  the guards skip.
+- The open-finance services (`fintechbankx-openfinance-*`) check `SASL_SSL` or `SSL` under the `aws` profile their
+  own charts render (three of them also under `kafka-msk` / `kafka-strimzi`), with `application-kafka-msk.yml` and
+  `application-kafka-strimzi.yml` where they use Kafka. Not activating `aws` (local runs, tests) turns the check off.
+  The shared chart never renders `aws`.
+
+Every other service, and every new one, adds the assertion in the first shape; the services in the second and third
+groups are aligning with it.
 
 The laptop runtime (`PLAINTEXT` on `localhost:29092`, or `kafka:9092` inside the shared compose stack of
 `fintechbankx-platform-delivery-iac-cicd-templates`) runs only under the `local` profile, so a service started against
 it sets `SPRING_PROFILES_ACTIVE=local` (the shared compose stack does this for every service). The `local` profile
-(with test resources) is the one place that sets the assertion's off switch `fintechbankx.tls.enforce=false`. Deployed
-charts refuse both that switch and the `local` profile.
+(`application-local.yml`, with the test resources) is the one place that sets the assertion's off switch
+`fintechbankx.tls.enforce: false`. Deployed charts refuse both that switch (`FINTECHBANKX_TLS_ENFORCE` in any spelling)
+and the `local` profile.
 
 ### Amazon MSK: `application-kafka-msk.yml`
 
