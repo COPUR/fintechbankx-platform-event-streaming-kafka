@@ -19,7 +19,7 @@
 
 ## Topic scheme change (2026-10-10, Proposed)
 
-- ADR-019 (adr-runbooks `87d6085`, owner decision 2026-10-08): one topic per aggregate, `evt.<ctx>.<aggregate>.v<major>`.
+- ADR-019 (adr-runbooks `76b0567`, owner decision 2026-10-08): one topic per aggregate, `evt.<ctx>.<aggregate>.v<major>`.
   The per-event topics `evt.<ctx>.<aggregate>.<event>.v1` were removed from `topics/catalog.yaml`,
   `scripts/kafka/create-topics.sh` (which now rejects that form) and the generated Strimzi, MSK IAM and topic-list
   outputs, and replaced by ten aggregate topics. No dual-run: nothing published to the per-event topics. DLQ, retry

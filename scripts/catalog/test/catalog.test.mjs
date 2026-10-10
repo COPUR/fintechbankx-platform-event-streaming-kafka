@@ -47,6 +47,7 @@ function fixture() {
       retentionMs: 604800000,
       maxMessageBytes: 1048576,
       dlq: { partitions: 3, retentionMs: 1209600000 },
+      ctxCodeToContext: { ln: "Lending", rsk: "Risk" },
     },
     services: {
       "svc-ln-loan-lifecycle": { eventNamespace: "evt.ln.loan", k8sNamespace: "lending", serviceAccount: "loan-lifecycle-service" },
@@ -240,6 +241,15 @@ test("rejects event types that do not belong on the aggregate topic", () => {
   const g = fixture();
   g.namespaces[0].topics[0].eventTypes.push("Loans.Loan.Restructured.v1");
   expectError(g, "eventType context Loans differs from Lending");
+});
+
+test("rejects an eventType whose Context does not match the ctx code of its topic", () => {
+  const c = fixture();
+  c.namespaces[0].topics[0].eventTypes.push("Payments.Loan.Restructured.v1");
+  expectError(c, "eventType context Payments does not match Lending, the context of ctx code ln (Payments.Loan.Restructured.v1)");
+  const d = fixture();
+  d.namespaces[0].namespace = "evt.zz.loan";
+  expectError(d, "ctx code zz is not in defaults.ctxCodeToContext");
 });
 
 test("an event major is independent of the topic major: v1 and v2 of one event dual-publish on the same topic", () => {
@@ -516,6 +526,23 @@ test("create-topics.sh keeps its local override flags", () => {
   const bad = createTopics({ REPLICATION_FACTOR: "1" });
   assert.equal(bad.status, 1);
   assert.match(bad.stderr, /cannot exceed the replication factor/);
+});
+
+test("create-topics.sh rejects a PARTITIONS override that differs from the catalog unless REPLICATION_FACTOR=1", () => {
+  const bad = createTopics({ PARTITIONS: "6" });
+  assert.equal(bad.status, 1);
+  assert.match(bad.stderr, /PARTITIONS=6 differs from the catalog value 3 for evt\.ln\.loan\.v1/);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "catalog-tsv-"));
+  try {
+    const file = path.join(dir, "topics.tsv");
+    fs.writeFileSync(file, "evt.ln.loan.v1\tevent\t3\t3\t2\tdelete\t604800000\t1048576\n");
+    const same = createTopics({ TOPICS_FILE: file, PARTITIONS: "3" });
+    assert.equal(same.status, 0, same.stderr);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+  const local = createTopics({ PARTITIONS: "6", REPLICATION_FACTOR: "1", MIN_INSYNC_REPLICAS: "1" });
+  assert.equal(local.status, 0, local.stderr);
 });
 
 test("create-topics.sh rejects a malformed topic list", () => {

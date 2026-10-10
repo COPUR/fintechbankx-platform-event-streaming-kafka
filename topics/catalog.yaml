@@ -55,6 +55,13 @@ cluster:
   strimziNamespace: kafka
 
 defaults:
+  ctxCodeToContext:             # <ctx> segment of evt.<ctx>.<aggregate> -> <Context> of eventType
+    ln: Lending
+    pay: Payments
+    cus: Customer
+    rsk: Risk
+    cmp: Compliance
+    of: OpenFinance
   partitions: 3
   replicationFactor: 3
   minInsyncReplicas: 2

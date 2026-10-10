@@ -121,6 +121,10 @@ export function validateCatalog(catalog, manifest) {
       err(`defaults.${key} must be a positive integer`);
     }
   }
+  const ctxMap = d.ctxCodeToContext;
+  if (ctxMap === null || typeof ctxMap !== "object" || Array.isArray(ctxMap) || Object.keys(ctxMap).length === 0) {
+    err("defaults.ctxCodeToContext must map each ctx code to its eventType Context name");
+  }
   if (isPositiveInt(d.minInsyncReplicas) && isPositiveInt(d.replicationFactor) && d.minInsyncReplicas >= d.replicationFactor) {
     err(`defaults.minInsyncReplicas (${d.minInsyncReplicas}) must be lower than replicationFactor (${d.replicationFactor}) so one broker can fail`);
   }
@@ -272,6 +276,14 @@ export function validateCatalog(catalog, manifest) {
           err(`${twhere}: eventType aggregate ${aggregate} differs from namespace aggregate ${ns.aggregate} (${eventType})`);
         }
         contexts.add(context);
+        // The Context of an eventType must be the one its topic's ctx code stands for.
+        const ctxCode = ns.namespace.split(".")[1];
+        const expectedContext = ctxMap?.[ctxCode];
+        if (expectedContext === undefined) {
+          err(`${twhere}: ctx code ${ctxCode} is not in defaults.ctxCodeToContext`);
+        } else if (context !== expectedContext) {
+          err(`${twhere}: eventType context ${context} does not match ${expectedContext}, the context of ctx code ${ctxCode} (${eventType})`);
+        }
       }
       if (t.cleanupPolicy !== undefined && t.cleanupPolicy !== "delete") {
         err(`${twhere}: cleanupPolicy must be delete for event topics`);

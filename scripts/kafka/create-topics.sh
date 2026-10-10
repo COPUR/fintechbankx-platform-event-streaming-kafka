@@ -22,7 +22,7 @@
 #   TOPICS_FILE             catalog topic list                    (default <repo>/topics/generated/topics.tsv)
 #   KAFKA_BROKER            bootstrap servers                     (default kafka:9092)
 #   KAFKA_COMMAND_CONFIG    client properties file for TLS/SASL   (default: none)
-#   PARTITIONS              override partitions of event topics   (default: catalog)
+#   PARTITIONS              must equal the catalog value unless REPLICATION_FACTOR=1 (local) (default: catalog)
 #   DLQ_PARTITIONS          override partitions of DLQ topics     (default: catalog)
 #   REPLICATION_FACTOR      override replication factor           (default: catalog, 3; use 1 locally)
 #   MIN_INSYNC_REPLICAS     override min.insync.replicas          (default: catalog, 2; use 1 locally)
@@ -122,6 +122,11 @@ load_catalog() {
             die "${TOPICS_FILE}:${lineno}: per-event topic '${name}' is retired; use the aggregate topic evt.<ctx>.<aggregate>.v<major> (ADR-019)"
           fi
           die "${TOPICS_FILE}:${lineno}: '${name}' does not match evt.<ctx>.<aggregate>.v<major>"
+        fi
+        # Partitions are part of the topic contract (ADR-019 section 3): an override must equal
+        # the catalog value, except on a local cluster (REPLICATION_FACTOR=1).
+        if [[ -n "${PARTITIONS}" && "${PARTITIONS}" != "${partitions}" && "${REPLICATION_FACTOR}" != "1" ]]; then
+          die "PARTITIONS=${PARTITIONS} differs from the catalog value ${partitions} for ${name}; partitions are part of the topic contract (ADR-019). Change topics/catalog.yaml, or use REPLICATION_FACTOR=1 for a local cluster"
         fi
         partitions="${PARTITIONS:-${partitions}}"
         retention="${RETENTION_MS:-${retention}}"
