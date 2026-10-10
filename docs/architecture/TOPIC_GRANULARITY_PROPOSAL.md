@@ -1,10 +1,11 @@
 # Proposal: one topic per event type or one topic per aggregate
 
-Status: **Proposed. Needs the owner's decision** (and, if the scheme changes, an ADR in
-`fintechbankx-governance-architecture-enablement-adr-runbooks` because it changes the naming standard).
-Nothing in this repository has been switched; the catalog keeps the current scheme.
+Status: **Decided by the owner on 2026-10-08: option B, one topic per aggregate.** Recorded in ADR-019 (sections 1,
+3, 5, 7 and 8) in `fintechbankx-governance-architecture-enablement-adr-runbooks`; the catalog, `create-topics.sh`,
+the generated ACL / IAM outputs and the client guide now follow it. This page is kept as the decision record of the
+options; "Today" below describes the scheme before the switch.
 
-## Today
+## Today (before the decision)
 
 The naming standard (`NAMING_CONVENTION_DDD_EDA_BUSINESS_CONTEXT.md`) gives one topic per event type:
 `evt.<ctx>.<aggregate>.<event>.v<major>`. The catalog therefore has 27 event topics for 6 aggregates

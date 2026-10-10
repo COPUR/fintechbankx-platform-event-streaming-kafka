@@ -6,7 +6,7 @@
       "kubernetes_namespace": "compliance",
       "service_account": "compliance-evidence-service",
       "produce_topics": [
-        "evt.cmp.compliance.screened.v1"
+        "evt.cmp.compliance.v1"
       ],
       "produce_topic_prefixes": [
         "evt.cmp.compliance."
@@ -19,13 +19,7 @@
       "kubernetes_namespace": "customer",
       "service_account": "customer-profile-kyc-service",
       "produce_topics": [
-        "evt.cus.customer.contact-updated.v1",
-        "evt.cus.customer.created.v1",
-        "evt.cus.customer.credit-limit-updated.v1",
-        "evt.cus.customer.credit-released.v1",
-        "evt.cus.customer.credit-reserved.v1",
-        "evt.cus.customer.credit-score-updated.v1",
-        "evt.cus.customer.kyc-status-changed.v1"
+        "evt.cus.customer.v1"
       ],
       "produce_topic_prefixes": [
         "evt.cus.customer."
@@ -38,21 +32,15 @@
       "kubernetes_namespace": "lending",
       "service_account": "loan-lifecycle-service",
       "produce_topics": [
-        "evt.ln.loan.approved.v1",
-        "evt.ln.loan.cancelled.v1",
-        "evt.ln.loan.created.v1",
-        "evt.ln.loan.disbursed.v1",
         "evt.ln.loan.dlq.v1",
-        "evt.ln.loan.fully-paid.v1",
-        "evt.ln.loan.payment-made.v1",
-        "evt.ln.loan.rejected.v1"
+        "evt.ln.loan.v1"
       ],
       "produce_topic_prefixes": [
         "evt.ln.loan."
       ],
       "consume_topics": [
         "evt.ln.loan.dlq.v1",
-        "evt.pay.payment.loan-payment-completed.v1"
+        "evt.pay.payment.v1"
       ],
       "consumer_groups": [
         "cg.svc-ln-loan-lifecycle.loan-repayment-allocation.v1"
@@ -71,10 +59,7 @@
         "evt.of.metadata."
       ],
       "consume_topics": [
-        "evt.of.consent.authorized.v1",
-        "evt.of.consent.created.v1",
-        "evt.of.consent.expired.v1",
-        "evt.of.consent.revoked.v1",
+        "evt.of.consent.v1",
         "evt.of.metadata.dlq.v1"
       ],
       "consumer_groups": [
@@ -94,10 +79,7 @@
         "evt.of.corporate."
       ],
       "consume_topics": [
-        "evt.of.consent.authorized.v1",
-        "evt.of.consent.created.v1",
-        "evt.of.consent.expired.v1",
-        "evt.of.consent.revoked.v1",
+        "evt.of.consent.v1",
         "evt.of.corporate.dlq.v1"
       ],
       "consumer_groups": [
@@ -111,10 +93,7 @@
       "kubernetes_namespace": "open-finance",
       "service_account": "consent-authorization-service",
       "produce_topics": [
-        "evt.of.consent.authorized.v1",
-        "evt.of.consent.created.v1",
-        "evt.of.consent.expired.v1",
-        "evt.of.consent.revoked.v1"
+        "evt.of.consent.v1"
       ],
       "produce_topic_prefixes": [
         "evt.of.consent."
@@ -127,7 +106,7 @@
       "kubernetes_namespace": "open-finance",
       "service_account": "payee-verification-service",
       "produce_topics": [
-        "evt.of.payee.verification-completed.v1"
+        "evt.of.payee.v1"
       ],
       "produce_topic_prefixes": [
         "evt.of.payee."
@@ -147,10 +126,7 @@
       ],
       "consume_topics": [
         "evt.of.account.dlq.v1",
-        "evt.of.consent.authorized.v1",
-        "evt.of.consent.created.v1",
-        "evt.of.consent.expired.v1",
-        "evt.of.consent.revoked.v1"
+        "evt.of.consent.v1"
       ],
       "consumer_groups": [
         "cg.svc-of-personal-financial-data.consent-projection.v1"
@@ -163,9 +139,7 @@
       "kubernetes_namespace": "payments",
       "service_account": "payment-bulk-orchestration-service",
       "produce_topics": [
-        "evt.pay.bulk.accepted.v1",
-        "evt.pay.bulk.completed.v1",
-        "evt.pay.bulk.rejected.v1"
+        "evt.pay.bulk.v1"
       ],
       "produce_topic_prefixes": [
         "evt.pay.bulk."
@@ -178,15 +152,7 @@
       "kubernetes_namespace": "payments",
       "service_account": "payment-initiation-settlement-service",
       "produce_topics": [
-        "evt.pay.payment.cancelled.v1",
-        "evt.pay.payment.completed.v1",
-        "evt.pay.payment.created.v1",
-        "evt.pay.payment.failed.v1",
-        "evt.pay.payment.loan-payment-completed.v1",
-        "evt.pay.payment.loan-payment-created.v1",
-        "evt.pay.payment.loan-payment-failed.v1",
-        "evt.pay.payment.processing-started.v1",
-        "evt.pay.payment.refunded.v1"
+        "evt.pay.payment.v1"
       ],
       "produce_topic_prefixes": [
         "evt.pay.payment."
@@ -199,9 +165,7 @@
       "kubernetes_namespace": "payments",
       "service_account": "payment-recurring-mandates-service",
       "produce_topics": [
-        "evt.pay.mandate.created.v1",
-        "evt.pay.mandate.payment-accepted.v1",
-        "evt.pay.mandate.revoked.v1"
+        "evt.pay.mandate.v1"
       ],
       "produce_topic_prefixes": [
         "evt.pay.mandate."
@@ -214,9 +178,7 @@
       "kubernetes_namespace": "payments",
       "service_account": "payment-request-to-pay-service",
       "produce_topics": [
-        "evt.pay.rtp.accepted.v1",
-        "evt.pay.rtp.created.v1",
-        "evt.pay.rtp.rejected.v1"
+        "evt.pay.rtp.v1"
       ],
       "produce_topic_prefixes": [
         "evt.pay.rtp."
@@ -229,7 +191,7 @@
       "kubernetes_namespace": "risk",
       "service_account": "risk-decisioning-service",
       "produce_topics": [
-        "evt.rsk.risk.assessed.v1"
+        "evt.rsk.risk.v1"
       ],
       "produce_topic_prefixes": [
         "evt.rsk.risk."

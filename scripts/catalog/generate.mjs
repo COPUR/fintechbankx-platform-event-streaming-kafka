@@ -79,7 +79,11 @@ export function run(argv, log = console) {
     return 1;
   }
   const count = catalog.namespaces.reduce((n, ns) => n + ns.topics.length, 0);
-  log.log(`catalog: valid (${catalog.namespaces.length} namespaces, ${count} event topics)${opts.check ? ", generated files up to date" : ""}`);
+  const types = catalog.namespaces.reduce((n, ns) => n + ns.topics.reduce((m, t) => m + t.eventTypes.length, 0), 0);
+  log.log(
+    `catalog: valid (${catalog.namespaces.length} namespaces, ${count} aggregate topics, ${types} event types)` +
+      `${opts.check ? ", generated files up to date" : ""}`,
+  );
   return 0;
 }
 

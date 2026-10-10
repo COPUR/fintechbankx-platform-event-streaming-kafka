@@ -7,9 +7,14 @@ import fs from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
 
-export const TOPIC_PATTERN = /^evt\.[a-z]+\.[a-z0-9]+(?:-[a-z0-9]+)*\.[a-z0-9]+(?:-[a-z0-9]+)*\.v[0-9]+$/;
+// ADR-019 (owner decision 2026-10-08): one topic per aggregate, evt.<ctx>.<aggregate>.v<major>.
+// The event is named by its eventType (envelope and record header), not by the topic.
+export const AGGREGATE_TOPIC_PATTERN = /^evt\.[a-z]+\.[a-z0-9]+(?:-[a-z0-9]+)*\.v[0-9]+$/;
+// Retired form evt.<ctx>.<aggregate>.<event>.v<major>; matched only to reject it with a clear message.
+export const PER_EVENT_TOPIC_PATTERN = /^evt\.[a-z]+\.[a-z0-9]+(?:-[a-z0-9]+)*\.(?!dlq\.)[a-z0-9]+(?:-[a-z0-9]+)*\.v[0-9]+$/;
+export const DLQ_TOPIC_PATTERN = /^evt\.[a-z]+\.[a-z0-9]+(?:-[a-z0-9]+)*\.dlq\.v[0-9]+$/;
 export const NAMESPACE_PATTERN = /^evt\.[a-z]+\.[a-z0-9]+(?:-[a-z0-9]+)*$/;
-export const EVENT_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export const TOPIC_KEYS = ["major", "eventTypes", "partitions", "retentionMs", "maxMessageBytes", "cleanupPolicy"];
 export const EVENT_TYPE_PATTERN = /^[A-Z][A-Za-z]*\.[A-Z][A-Za-z]*\.[A-Z][A-Za-z]*\.v[0-9]+$/;
 export const SERVICE_ID_PATTERN = /^svc-[a-z]+-[a-z0-9-]+$/;
 export const K8S_NAME_PATTERN = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/;
@@ -64,11 +69,12 @@ export function loadManifest(filePath) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-export function kebabToPascal(value) {
-  return value
-    .split("-")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join("");
+export function topicName(namespace, major) {
+  return `${namespace}.v${major}`;
+}
+
+function retiredPerEventTopic(name) {
+  return `per-event topic ${name} is retired: one topic per aggregate, evt.<ctx>.<aggregate>.v<major>, with the event named by eventType (ADR-019)`;
 }
 
 export function dlqName(namespace, major) {
@@ -216,18 +222,26 @@ export function validateCatalog(catalog, manifest) {
     if (topics.length === 0) {
       err(`${where}: topics must be a non-empty list`);
     }
-    const nsTopicNames = new Set();
+    // name -> Set of event types published on it
+    const nsTopics = new Map();
+    const contexts = new Set();
     for (const t of topics) {
-      const name = `${ns.namespace}.${t?.event}.v${t?.major}`;
+      if (t?.event !== undefined) {
+        err(`${where}: ${retiredPerEventTopic(`${ns.namespace}.${t.event}.v${t.major}`)}; list the event type under eventTypes of topic v${t.major}`);
+        continue;
+      }
+      const name = topicName(ns.namespace, t?.major);
       const twhere = `topic ${name}`;
-      if (!EVENT_PATTERN.test(t?.event ?? "") || t.event === "dlq") {
-        err(`${twhere}: event must be kebab-case and not 'dlq' (DLQs are derived)`);
+      for (const key of Object.keys(t ?? {})) {
+        if (!TOPIC_KEYS.includes(key)) {
+          err(`${twhere}: ${key} is not supported (${TOPIC_KEYS.join(", ")}); the record key is always aggregateId`);
+        }
       }
       if (!isPositiveInt(t?.major)) {
         err(`${twhere}: major must be a positive integer`);
       }
-      if (!TOPIC_PATTERN.test(name)) {
-        err(`${twhere}: does not match evt.<ctx>.<aggregate>.<event>.v<major>`);
+      if (!AGGREGATE_TOPIC_PATTERN.test(name)) {
+        err(`${twhere}: does not match evt.<ctx>.<aggregate>.v<major>`);
       }
       if (name.length > MAX_TOPIC_LENGTH) {
         err(`${twhere}: longer than ${MAX_TOPIC_LENGTH} characters`);
@@ -236,21 +250,28 @@ export function validateCatalog(catalog, manifest) {
         err(`${twhere}: declared twice`);
       }
       seenTopics.add(name);
-      nsTopicNames.add(name);
 
-      if (!EVENT_TYPE_PATTERN.test(t?.eventType ?? "")) {
-        err(`${twhere}: eventType must be <Context>.<Aggregate>.<PastTenseEvent>.v<major>`);
-      } else {
-        const [, aggregate, eventName, version] = t.eventType.split(".");
-        if (version !== `v${t.major}`) {
-          err(`${twhere}: eventType version ${version} differs from topic major v${t.major}`);
+      const eventTypes = Array.isArray(t?.eventTypes) ? t.eventTypes : [];
+      const typeSet = new Set();
+      nsTopics.set(name, typeSet);
+      if (eventTypes.length === 0) {
+        err(`${twhere}: eventTypes must list every event type published on the topic`);
+      }
+      for (const eventType of eventTypes) {
+        if (typeSet.has(eventType)) {
+          err(`${twhere}: ${eventType} listed twice`);
         }
+        typeSet.add(eventType);
+        if (!EVENT_TYPE_PATTERN.test(eventType ?? "")) {
+          err(`${twhere}: eventType ${eventType} must be <Context>.<Aggregate>.<PastTenseEvent>.v<major>`);
+          continue;
+        }
+        // The event's major is independent of the topic's major (ADR-019 section 5).
+        const [context, aggregate] = eventType.split(".");
         if (aggregate !== ns.aggregate) {
-          err(`${twhere}: eventType aggregate ${aggregate} differs from namespace aggregate ${ns.aggregate}`);
+          err(`${twhere}: eventType aggregate ${aggregate} differs from namespace aggregate ${ns.aggregate} (${eventType})`);
         }
-        if (EVENT_PATTERN.test(t.event ?? "") && eventName !== kebabToPascal(t.event)) {
-          err(`${twhere}: eventType event ${eventName} does not match topic event ${t.event} (expected ${kebabToPascal(t.event)})`);
-        }
+        contexts.add(context);
       }
       if (t.cleanupPolicy !== undefined && t.cleanupPolicy !== "delete") {
         err(`${twhere}: cleanupPolicy must be delete for event topics`);
@@ -260,6 +281,10 @@ export function validateCatalog(catalog, manifest) {
           err(`${twhere}: ${key} must be a positive integer`);
         }
       }
+    }
+    if (contexts.size > 1) {
+      const [first, ...rest] = [...contexts];
+      err(`${where}: eventType context ${rest.join(", ")} differs from ${first}; one namespace has one context`);
     }
 
     if (!CONSUMER_STATUSES.includes(ns.consumersStatus)) {
@@ -290,8 +315,21 @@ export function validateCatalog(catalog, manifest) {
         err(`${cwhere}: topics must list the consumed topics`);
       }
       for (const name of ctopics) {
-        if (!nsTopicNames.has(name)) {
+        if (PER_EVENT_TOPIC_PATTERN.test(name ?? "")) {
+          err(`${cwhere}: ${retiredPerEventTopic(name)}`);
+        } else if (!nsTopics.has(name)) {
           err(`${cwhere}: topic ${name} is not an event topic of ${ns.namespace}`);
+        }
+      }
+      // A consumer handles the event types it names and skips every other type on the topic:
+      // it commits the offset and never dead-letters an unknown type (ADR-019 section 3).
+      const handled = Array.isArray(c?.eventTypes) ? c.eventTypes : [];
+      if (handled.length === 0) {
+        err(`${cwhere}: eventTypes must list the event types it handles (it skips all others)`);
+      }
+      for (const eventType of handled) {
+        if (!ctopics.some((name) => nsTopics.get(name)?.has(eventType))) {
+          err(`${cwhere}: handles ${eventType}, which is not published on ${ctopics.join(", ") || "<no topic>"}`);
         }
       }
       if (c?.dlq !== undefined) {
@@ -342,7 +380,7 @@ export function resolveTopics(catalog) {
     kind: "dlq",
     namespace,
     owner,
-    eventType: null,
+    eventTypes: [],
     partitions: d.dlq.partitions,
     replicationFactor: d.replicationFactor,
     minInsyncReplicas: d.minInsyncReplicas,
@@ -369,14 +407,14 @@ export function resolveTopics(catalog) {
     const consumers = ns.consumers ?? [];
     const majors = new Set();
     for (const t of ns.topics) {
-      const name = `${ns.namespace}.${t.event}.v${t.major}`;
+      const name = topicName(ns.namespace, t.major);
       majors.add(t.major);
       events.push({
         name,
         kind: "event",
         namespace: ns.namespace,
         owner: ns.owner,
-        eventType: t.eventType,
+        eventTypes: [...t.eventTypes],
         contract: ns.contract,
         implementation: ns.implementation,
         partitions: t.partitions ?? d.partitions,
@@ -390,7 +428,12 @@ export function resolveTopics(catalog) {
         producers: [ns.owner],
         consumers: consumers
           .filter((c) => c.topics.includes(name))
-          .map((c) => ({ service: c.service, group: c.group, dlq: consumerDlq(catalog, c, t.major) }))
+          .map((c) => ({
+            service: c.service,
+            group: c.group,
+            eventTypes: (c.eventTypes ?? []).filter((e) => t.eventTypes.includes(e)),
+            dlq: consumerDlq(catalog, c, t.major),
+          }))
           .sort((a, b) => a.service.localeCompare(b.service)),
         consumersStatus: ns.consumersStatus,
       });
@@ -527,7 +570,7 @@ export function renderStrimziTopics(catalog) {
       },
       annotations: {
         ...(t.contract ? { "fintechbankx.io/contract": t.contract } : {}),
-        ...(t.eventType ? { "fintechbankx.io/event-type": t.eventType } : {}),
+        ...(t.eventTypes.length > 0 ? { "fintechbankx.io/event-types": t.eventTypes.join(",") } : {}),
         ...(t.dlq ? { "fintechbankx.io/dlq": t.dlq } : {}),
       },
     },
@@ -650,9 +693,11 @@ export function renderMarkdown(catalog) {
     `Status: **${catalog.metadata?.status ?? "Proposed"}**. Source: [topics/catalog.yaml](../catalog.yaml).`,
     "Defaults: replication factor " +
       `${catalog.defaults.replicationFactor}, min.insync.replicas ${catalog.defaults.minInsyncReplicas}, ` +
-      "cleanup.policy delete. Record key: aggregateId. Producers: the owner only.",
+      "cleanup.policy delete. One topic per aggregate (ADR-019): record key aggregateId (UTF-8); headers eventType, eventId " +
+      "and correlationId required, traceparent and x-fapi-interaction-id optional. Consumers skip event types they do not " +
+      "handle (commit, never dead-letter). Producers: the owner only.",
     "",
-    "| Topic | Kind | Owner (only producer) | Event type | Partitions | Retention (ms) | DLQ | Known consumers | Implementation |",
+    "| Topic | Kind | Owner (only producer) | Event types (eventType header) | Partitions | Retention (ms) | DLQ | Known consumers (handled event types) | Implementation |",
     "|---|---|---|---|---|---|---|---|---|",
   ];
   for (const t of topics) {
@@ -663,10 +708,12 @@ export function renderMarkdown(catalog) {
           ? `${t.producers.join(", ")} (redrive)`
           : "-"
         : t.consumers.length > 0
-          ? t.consumers.map((c) => `${c.service} (\`${c.group}\`, DLQ \`${c.dlq}\`)`).join(", ")
+          ? t.consumers
+              .map((c) => `${c.service} (\`${c.group}\`, handles ${c.eventTypes.map((e) => `\`${e}\``).join(", ")}; DLQ \`${c.dlq}\`)`)
+              .join(", ")
           : `${t.consumersStatus} (none in code)`;
     lines.push(
-      `| \`${t.name}\` | ${t.kind} | ${mdCell(producers)} | ${t.eventType ? `\`${t.eventType}\`` : "-"} | ${t.partitions} | ${t.retentionMs} | ${t.dlq ? `\`${t.dlq}\`` : "-"} | ${mdCell(consumers)} | ${t.implementation} |`,
+      `| \`${t.name}\` | ${t.kind} | ${mdCell(producers)} | ${t.eventTypes.length > 0 ? t.eventTypes.map((e) => `\`${e}\``).join("<br>") : "-"} | ${t.partitions} | ${t.retentionMs} | ${t.dlq ? `\`${t.dlq}\`` : "-"} | ${mdCell(consumers)} | ${t.implementation} |`,
     );
   }
   lines.push("", "## Gaps (not provisioned)", "", "| Service | Namespace | Reason |", "|---|---|---|");
@@ -696,9 +743,46 @@ export function generateAll(root, catalog) {
 // Optional cross-check against the AsyncAPI catalog (local use; not a CI gate)
 // ---------------------------------------------------------------------------
 
+/** eventType consts of the messages a channel carries (message payload, resolved through local $refs). */
+export function channelEventTypes(spec, channel) {
+  const resolve = (node) => {
+    if (node && typeof node.$ref === "string" && node.$ref.startsWith("#/")) {
+      return node.$ref
+        .slice(2)
+        .split("/")
+        .reduce((acc, key) => (acc == null ? acc : acc[key.replace(/~1/g, "/").replace(/~0/g, "~")]), spec);
+    }
+    return node;
+  };
+  const found = new Set();
+  const walk = (node, depth) => {
+    const n = resolve(node);
+    if (!n || typeof n !== "object" || depth > 8) {
+      return;
+    }
+    if (typeof n.properties?.eventType?.const === "string") {
+      found.add(n.properties.eventType.const);
+    }
+    for (const key of ["allOf", "oneOf", "anyOf"]) {
+      for (const child of Array.isArray(n[key]) ? n[key] : []) {
+        walk(child, depth + 1);
+      }
+    }
+  };
+  for (const ref of Object.values(channel?.messages ?? {})) {
+    walk(resolve(ref)?.payload, 0);
+  }
+  return found;
+}
+
 /**
  * Compares catalog topics with the channels of asyncapi/<owner>.yaml files in
  * a checkout of the AsyncAPI catalog. Returns error strings.
+ *
+ * One aggregate channel per topic: address, partitions, replicas, retention,
+ * cleanup policy, event types (eventType consts of its messages) and declared
+ * x-consumers must agree. DLQs are consumer-owned and modelled as a message in
+ * the contracts, so DLQ channels are not compared.
  */
 export function crossCheckAsyncApi(catalog, asyncapiDir) {
   const errors = [];
@@ -714,20 +798,24 @@ export function crossCheckAsyncApi(catalog, asyncapiDir) {
       errors.push(`${ns.namespace}: contract declares x-event-namespace ${spec.info["x-event-namespace"]}`);
     }
     const channels = new Map();
-    const declaredConsumers = new Map();
     for (const ch of Object.values(spec?.channels ?? {})) {
-      channels.set(ch.address, ch.bindings?.kafka ?? {});
-      if (Array.isArray(ch["x-consumers"])) {
-        declaredConsumers.set(ch.address, ch["x-consumers"]);
+      if (DLQ_TOPIC_PATTERN.test(ch?.address ?? "")) {
+        continue;
       }
+      // Receive-only channels of other namespaces (consumed topics) are checked from the consumer side.
+      if (typeof ch?.address === "string" && !ch.address.startsWith(`${ns.namespace}.`)) {
+        continue;
+      }
+      channels.set(ch.address, ch);
     }
-    const expected = resolved.filter((t) => t.namespace === ns.namespace);
-    for (const t of expected) {
-      const b = channels.get(t.name);
-      if (!b) {
+    for (const t of resolved.filter((x) => x.namespace === ns.namespace && x.kind === "event")) {
+      const ch = channels.get(t.name);
+      if (!ch) {
         errors.push(`${t.name}: no channel in ${ns.owner}.yaml`);
         continue;
       }
+      channels.delete(t.name);
+      const b = ch.bindings?.kafka ?? {};
       if (b.partitions !== undefined && b.partitions !== t.partitions) {
         errors.push(`${t.name}: partitions ${t.partitions} in catalog, ${b.partitions} in contract`);
       }
@@ -742,18 +830,29 @@ export function crossCheckAsyncApi(catalog, asyncapiDir) {
       if (policy !== undefined && JSON.stringify(policy) !== JSON.stringify([t.cleanupPolicy])) {
         errors.push(`${t.name}: cleanup.policy ${t.cleanupPolicy} in catalog, ${JSON.stringify(policy)} in contract`);
       }
-      if (declaredConsumers.has(t.name)) {
+      const contractTypes = channelEventTypes(spec, ch);
+      for (const e of t.eventTypes) {
+        if (!contractTypes.has(e)) {
+          errors.push(`${t.name}: event type ${e} in catalog, not in contract`);
+        }
+      }
+      for (const e of contractTypes) {
+        if (!t.eventTypes.includes(e)) {
+          errors.push(`${t.name}: event type ${e} in contract, not in catalog`);
+        }
+      }
+      if (Array.isArray(ch["x-consumers"])) {
         const fmt = (list) => list.map((c) => `${c.service}|${c.group}|${c.dlq}`).sort().join(", ");
-        const contract = fmt(declaredConsumers.get(t.name).map((c) => ({ service: c.serviceId, group: c.consumerGroup, dlq: c.deadLetterTopic })));
+        const contract = fmt(ch["x-consumers"].map((c) => ({ service: c.serviceId, group: c.consumerGroup, dlq: c.deadLetterTopic })));
         const catalogSide = fmt(t.consumers);
         if (contract !== catalogSide) {
           errors.push(`${t.name}: x-consumers [${contract}] in contract, [${catalogSide}] in catalog`);
         }
       }
-      channels.delete(t.name);
     }
     for (const address of channels.keys()) {
-      errors.push(`${address}: channel in ${ns.owner}.yaml but not in the catalog`);
+      const hint = PER_EVENT_TOPIC_PATTERN.test(address ?? "") ? ` (${retiredPerEventTopic(address)})` : "";
+      errors.push(`${address}: channel in ${ns.owner}.yaml but not in the catalog${hint}`);
     }
   }
   return errors;

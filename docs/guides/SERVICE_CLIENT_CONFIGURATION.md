@@ -3,6 +3,11 @@
 Status: **Proposed** (Event Platform Squad). Applies to every service that produces or consumes `evt.*` topics.
 The topics, owners and allowed consumers are in [`topics/catalog.yaml`](../../topics/catalog.yaml).
 
+Topic scheme (ADR-019, owner decision 2026-10-08): **one topic per aggregate**, `evt.<ctx>.<aggregate>.v<major>`, for
+example `evt.ln.loan.v1` and `evt.pay.payment.v1`. Every event of the aggregate goes to that topic; the event is
+named by its `eventType` (envelope field and record header), not by the topic. The per-event topics
+`evt.<ctx>.<aggregate>.<event>.v1` are retired: nothing published to them, so they were removed without a dual-run.
+
 ## 1. Connection per runtime
 
 | Runtime | Bootstrap | `security.protocol` | Authentication | Identity |
@@ -78,24 +83,35 @@ All owners publish through their transactional outbox; the relay is the only Kaf
 | `linger.ms` | `5` (recommended) | Small batches without visible latency |
 | Relay send timeout | `35 s` (outbox relay waiting on the send future) | Longer than `delivery.timeout.ms`, so the producer reports the real outcome before the relay gives up; cover the producer construction with a test |
 | `client.id` | the service id | Broker logs and quotas per service |
-| Record key | `aggregateId` | All events of one aggregate land in one partition of a topic |
+| Topic | `evt.<ctx>.<aggregate>.v<major>` of the service's own namespace | One topic per aggregate; the relay writes every event type of the aggregate to it |
+| Record key | `aggregateId`, UTF-8 text (`StringSerializer`) | Every event of one aggregate instance lands in one partition of the aggregate topic, in commit order (the loan origination and repayment sagas rely on it) |
 | Record value | the envelope JSON | [`asyncapi/common/event-envelope.yaml`](https://github.com/COPUR/fintechbankx-governance-api-contracts-asyncapi-catalog/blob/main/asyncapi/common/event-envelope.yaml) |
 
 Envelope fields: `eventId` (UUID, idempotency key), `eventType` (`<Context>.<Aggregate>.<Event>.v<major>`),
 `occurredAt` (UTC), `aggregateId`, `aggregateVersion`, `correlationId`, `causationId`, `producer` (service id), `data`
 (ids and facts only, no personal data snapshots).
 
-Headers on every record: `eventType`, `eventId`, `correlationId` (required); `x-fapi-interaction-id` when the flow
-started at a FAPI API; `traceparent` (W3C) so traces cross the broker.
+Record headers, UTF-8 text (`EventHeaders` in the envelope schema):
+
+| Header | Required | Value |
+|---|---|---|
+| `eventType` | yes | Same as the envelope `eventType`, e.g. `Lending.Loan.Disbursed.v1`; consumers route on it without parsing the value |
+| `eventId` | yes | Same as the envelope `eventId` |
+| `correlationId` | yes | Same as the envelope `correlationId` |
+| `traceparent` | when tracing | W3C trace context, so traces cross the broker |
+| `x-fapi-interaction-id` | when the flow started at a FAPI API | The interaction id |
 
 Event topics are never compacted (`cleanup.policy=delete`; the catalog rejects anything else). Two reasons:
-an event is a fact, not a state snapshot; and each event type has its own topic, so compacting one topic
-keeps the latest *created* or the latest *revoked* record per key, never the latest state of the aggregate.
+an event is a fact, not a state snapshot; and compacting an aggregate topic keeps only the latest event per
+key (say *revoked*), dropping the history every consumer that replays needs.
 A consumer that needs current state keeps its own projection and rebuilds it by replaying from the earliest
-offset. Consent example: `evt.of.consent.{created,authorized,revoked,expired}.v1` keep 90 days
-(`retention.ms=7776000000`), matching the 90-day consent lifetime, so a replay from earliest sees every
-consent still alive; records are keyed by `consentId`. If a consent could outlive the retention, raise the
-retention or publish a separate state topic owned by consent-auth (an ADR), rather than compacting event topics.
+offset. Consent example: `evt.of.consent.v1` keeps 90 days (`retention.ms=7776000000`), matching the 90-day
+consent lifetime, so a replay from earliest sees every consent still alive; records are keyed by `consentId`.
+If a consent could outlive the retention, raise the retention or publish a separate state topic owned by
+consent-auth (an ADR), rather than compacting event topics.
+
+The partition count of an aggregate topic is fixed once a consumer exists: changing it moves keys between partitions
+and breaks per-aggregate order, so it is a topic major (below), not an operational tweak.
 
 The relay sends one row at a time in insertion order under a Postgres advisory lock, so only one replica publishes and
 an aggregate's events keep their order. A Kafka outage does not fail business requests: rows wait in the outbox. Alert
@@ -130,34 +146,54 @@ the reason recorded. Metrics (Micrometer names, Prometheus names in brackets; co
 | `client.rack` | the node's zone (Strimzi) or AZ id (MSK) | Fetch from a same-zone replica (`RackAwareReplicaSelector` is on) |
 | `max.poll.records` / `max.poll.interval.ms` | sized so one poll is processed well within the interval | Avoid rebalance storms |
 
-Idempotency: store processed `eventId`s (an inbox table in the consumer's own schema) in the same transaction as the
-side effect, and skip duplicates. Use `aggregateVersion` to detect gaps or reordering; with one topic per event type,
-two events of the same aggregate on different topics can arrive in either order (see
-[the granularity proposal](../architecture/TOPIC_GRANULARITY_PROPOSAL.md)).
+Event types: a consumer subscribes to the aggregate topic and reads the `eventType` header first. It handles the
+types it declares (`eventTypes` of its consumer entry in the catalog) and **skips every other type**: it commits the
+offset without processing, never fails and never dead-letters it. A new event type on a topic is therefore additive.
+With Spring Kafka, filter before deserialising the value:
 
-Ignore unknown fields (additive changes are minor versions). A new major version is a new topic; consume both during
-the producer's dual-publish window and de-duplicate on `eventId`.
+```java
+factory.setRecordFilterStrategy(record -> {          // true = discard
+    Header h = record.headers().lastHeader("eventType");
+    return h == null || !HANDLED_EVENT_TYPES.contains(new String(h.value(), StandardCharsets.UTF_8));
+});
+factory.setAckDiscarded(true);                        // discarded records are committed, not retried
+```
+
+A record without an `eventType` header breaks the contract of the producer; skip it the same way and raise it with
+the producing squad rather than blocking the partition.
+
+Idempotency: store processed `eventId`s (an inbox table in the consumer's own schema) in the same transaction as the
+side effect, and skip duplicates. Events of one aggregate instance arrive in order (same key, same partition); use
+`aggregateVersion` to detect gaps and redelivered older versions.
+
+Versioning (ADR-019 section 5): ignore unknown fields (additive changes are minor versions). A breaking change to one
+event is a new **event** major on the same topic: the producer publishes `...Disbursed.v1` and `...Disbursed.v2`
+(two records, same key, in that order) until every consumer of v1 has moved; a consumer handles one of the two and
+skips the other. The **topic** major (`evt.ln.loan.v2`) changes only when the record key, the partition count or the
+cleanup policy changes; then the producer dual-publishes to both topics, and consumers read both during the window
+and de-duplicate on `eventId`.
 
 ### Retries and the dead-letter topic
 
 Dead-letter topics are **consumer-owned** (ADR-019 / ADR-024 in the ADR repository). Each namespace has one DLQ,
 `evt.<ctx>.<aggregate>.dlq.v<major>`, and only that namespace's own service writes it: a consumer that gives up on a
 record writes it to the DLQ of **its own** namespace, never to the source topic's namespace. Example: the loan service
-dead-letters a failed `evt.pay.payment.loan-payment-completed.v1` record to `evt.ln.loan.dlq.v1`, not to
-`evt.pay.payment.dlq.v1`. A consumer-only service (no events of its own, such as the open-finance consent projections)
+dead-letters a failed `evt.pay.payment.v1` record (a `Payments.Payment.LoanPaymentCompleted.v1` it handles) to
+`evt.ln.loan.dlq.v1`, not to `evt.pay.payment.dlq.v1`. A consumer-only service (no events of its own, such as the open-finance consent projections)
 still gets its namespace DLQ. A namespace whose service consumes nothing has no DLQ, since nobody would write it;
 an owner that plans a consumer can reserve it early with `dlq: {reserved: true}` in the catalog. The catalog grants write and read on that DLQ to its own service only. Do not block a
 partition forever:
 
 1. Retry in-process with exponential backoff, bounded (for example 3 attempts: 1 s, 2 s, 4 s).
-2. Send to the DLQ immediately, without retries, for errors that cannot heal: deserialization, contract violation,
-   unknown `eventType` version.
+2. Send to the DLQ immediately, without retries, for errors that cannot heal in an event type the consumer handles:
+   deserialization, contract violation. An event type it does not handle is never an error: skip and commit (above),
+   never dead-letter.
 3. Copy key and value unchanged and add the headers from `DeadLetterHeaders` in the envelope schema. These four
    identify the source so the owning team can replay it:
 
    | Header | Value |
    |---|---|
-   | `dlq-original-topic` | source topic, e.g. `evt.pay.payment.loan-payment-completed.v1` |
+   | `dlq-original-topic` | source topic, e.g. `evt.pay.payment.v1` |
    | `dlq-original-partition` | source partition |
    | `dlq-original-offset` | source offset |
    | `dlq-consumer-group` | the group that gave up, `cg.<service-id>.<purpose>.v<major>` |

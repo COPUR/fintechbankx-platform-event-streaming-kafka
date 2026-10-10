@@ -65,9 +65,9 @@ IRSA subject (`kubernetes_namespace`, `service_account`) and:
 
 | Field | Meaning | IAM actions the module should grant |
 |---|---|---|
-| `produce_topics` | Exact topics the service writes (its events and, if it consumes, its own namespace DLQ) | `DescribeTopic`, `WriteData` on each topic ARN; `WriteDataIdempotently` on the cluster (idempotent producer) |
+| `produce_topics` | Exact topics the service writes (its aggregate topic `evt.<ctx>.<aggregate>.v<major>` and, if it consumes, its own namespace DLQ) | `DescribeTopic`, `WriteData` on each topic ARN; `WriteDataIdempotently` on the cluster (idempotent producer) |
 | `produce_topic_prefixes` | The namespaces it owns, `evt.<ctx>.<aggregate>.` | same, as `topic/.../<prefix>*` |
-| `consume_topics` | Exact topics it reads, including its own DLQ (redrive) | `DescribeTopic`, `ReadData` |
+| `consume_topics` | Exact topics it reads (whole aggregate topics; it skips event types it does not handle), including its own DLQ (redrive) | `DescribeTopic`, `ReadData` |
 | `consumer_groups` | Declared groups `cg.<service-id>.<purpose>.v<major>` | `DescribeGroup`, `AlterGroup` on `group/.../<group>` |
 | `consumer_group_prefixes` | `cg.<service-id>.` (used for Strimzi ACLs) | optional prefix form of the above |
 

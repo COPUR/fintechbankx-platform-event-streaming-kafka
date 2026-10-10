@@ -6,8 +6,11 @@
 # The topic list is NOT maintained here. It is read from
 # topics/generated/topics.tsv, which scripts/catalog/generate.mjs renders from
 # topics/catalog.yaml (the single source of truth, see topics/README.md):
-#   event topic : evt.<ctx>.<aggregate>.<event>.v<major>
-#   dead letter : evt.<ctx>.<aggregate>.dlq.v<major>   (one per aggregate namespace)
+#   event topic : evt.<ctx>.<aggregate>.v<major>   (one per aggregate, ADR-019; the
+#                 event is named by the eventType record header, not by the topic)
+#   dead letter : <consumer namespace>.dlq.v<major>, i.e. evt.<ctx>.<aggregate>.dlq.v<major>
+# The per-event form evt.<ctx>.<aggregate>.<event>.v<major> is retired and rejected
+# (nothing published to it, so there is no dual-run; ADR-019 section 8).
 # To add a topic, change topics/catalog.yaml and run `npm run catalog:generate`.
 #
 # Legacy dotted topics (customer.created, loan.disbursed, ...) are created only
@@ -68,7 +71,10 @@ readonly LEGACY_LONG_RETENTION_MS=31536000000
 readonly LEGACY_PARTITIONS=3
 readonly LEGACY_RETENTION_MS=604800000
 
-readonly TOPIC_PATTERN='^evt\.[a-z]+\.[a-z0-9]+(-[a-z0-9]+)*\.[a-z0-9]+(-[a-z0-9]+)*\.v[0-9]+$'
+readonly EVENT_TOPIC_PATTERN='^evt\.[a-z]+\.[a-z0-9]+(-[a-z0-9]+)*\.v[0-9]+$'
+readonly DLQ_TOPIC_PATTERN='^evt\.[a-z]+\.[a-z0-9]+(-[a-z0-9]+)*\.dlq\.v[0-9]+$'
+# Retired per-event form; matched only to reject it with a clear message.
+readonly PER_EVENT_TOPIC_PATTERN='^evt\.[a-z]+\.[a-z0-9]+(-[a-z0-9]+)*\.[a-z0-9]+(-[a-z0-9]+)*\.v[0-9]+$'
 
 log() { printf '%s %s\n' "[create-topics]" "$*"; }
 die() { printf '%s ERROR: %s\n' "[create-topics]" "$*" >&2; exit 1; }
@@ -109,15 +115,19 @@ load_catalog() {
     [[ -z "${line}" || "${line}" == \#* ]] && continue
     IFS=$'\t' read -r name kind partitions rf min_isr cleanup retention max_bytes extra <<<"${line}"
     [[ -z "${extra:-}" && -n "${max_bytes:-}" ]] || die "${TOPICS_FILE}:${lineno}: expected 8 tab-separated columns"
-    [[ "${name}" =~ ${TOPIC_PATTERN} ]] || die "${TOPICS_FILE}:${lineno}: '${name}' does not match evt.<ctx>.<aggregate>.<event>.v<major>"
     case "${kind}" in
       event)
-        [[ "${name}" != *.dlq.v* ]] || die "${TOPICS_FILE}:${lineno}: event topic '${name}' uses the reserved dlq segment"
+        if ! [[ "${name}" =~ ${EVENT_TOPIC_PATTERN} ]]; then
+          if [[ "${name}" =~ ${PER_EVENT_TOPIC_PATTERN} && ! "${name}" =~ ${DLQ_TOPIC_PATTERN} ]]; then
+            die "${TOPICS_FILE}:${lineno}: per-event topic '${name}' is retired; use the aggregate topic evt.<ctx>.<aggregate>.v<major> (ADR-019)"
+          fi
+          die "${TOPICS_FILE}:${lineno}: '${name}' does not match evt.<ctx>.<aggregate>.v<major>"
+        fi
         partitions="${PARTITIONS:-${partitions}}"
         retention="${RETENTION_MS:-${retention}}"
         ;;
       dlq)
-        [[ "${name}" == *.dlq.v* ]] || die "${TOPICS_FILE}:${lineno}: DLQ topic '${name}' must be evt.<ctx>.<aggregate>.dlq.v<major>"
+        [[ "${name}" =~ ${DLQ_TOPIC_PATTERN} ]] || die "${TOPICS_FILE}:${lineno}: DLQ topic '${name}' must be <namespace>.dlq.v<major> (evt.<ctx>.<aggregate>.dlq.v<major>)"
         partitions="${DLQ_PARTITIONS:-${partitions}}"
         retention="${DLQ_RETENTION_MS:-${retention}}"
         ;;

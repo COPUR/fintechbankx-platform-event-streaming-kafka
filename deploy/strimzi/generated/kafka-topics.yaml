@@ -2,7 +2,7 @@
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: evt.ln.loan.created.v1
+  name: evt.ln.loan.v1
   namespace: kafka
   labels:
     strimzi.io/cluster: fintechbankx
@@ -12,153 +12,9 @@ metadata:
     fintechbankx.io/owner: svc-ln-loan-lifecycle
   annotations:
     fintechbankx.io/contract: asyncapi/svc-ln-loan-lifecycle.yaml
-    fintechbankx.io/event-type: Lending.Loan.Created.v1
+    fintechbankx.io/event-types: Lending.Loan.Created.v1,Lending.Loan.Approved.v1,Lending.Loan.Rejected.v1,Lending.Loan.Disbursed.v1,Lending.Loan.Cancelled.v1,Lending.Loan.PaymentMade.v1,Lending.Loan.FullyPaid.v1
 spec:
-  topicName: evt.ln.loan.created.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.ln.loan.approved.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-ln-loan-lifecycle
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-ln-loan-lifecycle.yaml
-    fintechbankx.io/event-type: Lending.Loan.Approved.v1
-spec:
-  topicName: evt.ln.loan.approved.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.ln.loan.rejected.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-ln-loan-lifecycle
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-ln-loan-lifecycle.yaml
-    fintechbankx.io/event-type: Lending.Loan.Rejected.v1
-spec:
-  topicName: evt.ln.loan.rejected.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.ln.loan.disbursed.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-ln-loan-lifecycle
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-ln-loan-lifecycle.yaml
-    fintechbankx.io/event-type: Lending.Loan.Disbursed.v1
-spec:
-  topicName: evt.ln.loan.disbursed.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.ln.loan.cancelled.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-ln-loan-lifecycle
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-ln-loan-lifecycle.yaml
-    fintechbankx.io/event-type: Lending.Loan.Cancelled.v1
-spec:
-  topicName: evt.ln.loan.cancelled.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.ln.loan.payment-made.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-ln-loan-lifecycle
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-ln-loan-lifecycle.yaml
-    fintechbankx.io/event-type: Lending.Loan.PaymentMade.v1
-spec:
-  topicName: evt.ln.loan.payment-made.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.ln.loan.fully-paid.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-ln-loan-lifecycle
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-ln-loan-lifecycle.yaml
-    fintechbankx.io/event-type: Lending.Loan.FullyPaid.v1
-spec:
-  topicName: evt.ln.loan.fully-paid.v1
+  topicName: evt.ln.loan.v1
   partitions: 3
   replicas: 3
   config:
@@ -193,7 +49,7 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: evt.pay.payment.created.v1
+  name: evt.pay.payment.v1
   namespace: kafka
   labels:
     strimzi.io/cluster: fintechbankx
@@ -203,9 +59,9 @@ metadata:
     fintechbankx.io/owner: svc-pay-initiation-settlement
   annotations:
     fintechbankx.io/contract: asyncapi/svc-pay-initiation-settlement.yaml
-    fintechbankx.io/event-type: Payments.Payment.Created.v1
+    fintechbankx.io/event-types: Payments.Payment.Created.v1,Payments.Payment.ProcessingStarted.v1,Payments.Payment.Completed.v1,Payments.Payment.Failed.v1,Payments.Payment.Cancelled.v1,Payments.Payment.Refunded.v1,Payments.Payment.LoanPaymentCreated.v1,Payments.Payment.LoanPaymentCompleted.v1,Payments.Payment.LoanPaymentFailed.v1
 spec:
-  topicName: evt.pay.payment.created.v1
+  topicName: evt.pay.payment.v1
   partitions: 3
   replicas: 3
   config:
@@ -217,199 +73,7 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: evt.pay.payment.processing-started.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-pay-initiation-settlement
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-pay-initiation-settlement.yaml
-    fintechbankx.io/event-type: Payments.Payment.ProcessingStarted.v1
-spec:
-  topicName: evt.pay.payment.processing-started.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.pay.payment.completed.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-pay-initiation-settlement
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-pay-initiation-settlement.yaml
-    fintechbankx.io/event-type: Payments.Payment.Completed.v1
-spec:
-  topicName: evt.pay.payment.completed.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.pay.payment.failed.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-pay-initiation-settlement
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-pay-initiation-settlement.yaml
-    fintechbankx.io/event-type: Payments.Payment.Failed.v1
-spec:
-  topicName: evt.pay.payment.failed.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.pay.payment.cancelled.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-pay-initiation-settlement
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-pay-initiation-settlement.yaml
-    fintechbankx.io/event-type: Payments.Payment.Cancelled.v1
-spec:
-  topicName: evt.pay.payment.cancelled.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.pay.payment.refunded.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-pay-initiation-settlement
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-pay-initiation-settlement.yaml
-    fintechbankx.io/event-type: Payments.Payment.Refunded.v1
-spec:
-  topicName: evt.pay.payment.refunded.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.pay.payment.loan-payment-created.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-pay-initiation-settlement
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-pay-initiation-settlement.yaml
-    fintechbankx.io/event-type: Payments.Payment.LoanPaymentCreated.v1
-spec:
-  topicName: evt.pay.payment.loan-payment-created.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.pay.payment.loan-payment-completed.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-pay-initiation-settlement
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-pay-initiation-settlement.yaml
-    fintechbankx.io/event-type: Payments.Payment.LoanPaymentCompleted.v1
-spec:
-  topicName: evt.pay.payment.loan-payment-completed.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.pay.payment.loan-payment-failed.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-pay-initiation-settlement
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-pay-initiation-settlement.yaml
-    fintechbankx.io/event-type: Payments.Payment.LoanPaymentFailed.v1
-spec:
-  topicName: evt.pay.payment.loan-payment-failed.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.pay.rtp.created.v1
+  name: evt.pay.rtp.v1
   namespace: kafka
   labels:
     strimzi.io/cluster: fintechbankx
@@ -419,9 +83,9 @@ metadata:
     fintechbankx.io/owner: svc-pay-request-to-pay
   annotations:
     fintechbankx.io/contract: asyncapi/svc-pay-request-to-pay.yaml
-    fintechbankx.io/event-type: Payments.PayRequest.Created.v1
+    fintechbankx.io/event-types: Payments.PayRequest.Created.v1,Payments.PayRequest.Accepted.v1,Payments.PayRequest.Rejected.v1
 spec:
-  topicName: evt.pay.rtp.created.v1
+  topicName: evt.pay.rtp.v1
   partitions: 3
   replicas: 3
   config:
@@ -433,55 +97,7 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: evt.pay.rtp.accepted.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-pay-request-to-pay
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-pay-request-to-pay.yaml
-    fintechbankx.io/event-type: Payments.PayRequest.Accepted.v1
-spec:
-  topicName: evt.pay.rtp.accepted.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.pay.rtp.rejected.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-pay-request-to-pay
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-pay-request-to-pay.yaml
-    fintechbankx.io/event-type: Payments.PayRequest.Rejected.v1
-spec:
-  topicName: evt.pay.rtp.rejected.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.pay.bulk.accepted.v1
+  name: evt.pay.bulk.v1
   namespace: kafka
   labels:
     strimzi.io/cluster: fintechbankx
@@ -491,9 +107,9 @@ metadata:
     fintechbankx.io/owner: svc-pay-bulk-orchestration
   annotations:
     fintechbankx.io/contract: asyncapi/svc-pay-bulk-orchestration.yaml
-    fintechbankx.io/event-type: Payments.BulkFile.Accepted.v1
+    fintechbankx.io/event-types: Payments.BulkFile.Accepted.v1,Payments.BulkFile.Completed.v1,Payments.BulkFile.Rejected.v1
 spec:
-  topicName: evt.pay.bulk.accepted.v1
+  topicName: evt.pay.bulk.v1
   partitions: 3
   replicas: 3
   config:
@@ -505,55 +121,7 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: evt.pay.bulk.completed.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-pay-bulk-orchestration
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-pay-bulk-orchestration.yaml
-    fintechbankx.io/event-type: Payments.BulkFile.Completed.v1
-spec:
-  topicName: evt.pay.bulk.completed.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.pay.bulk.rejected.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-pay-bulk-orchestration
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-pay-bulk-orchestration.yaml
-    fintechbankx.io/event-type: Payments.BulkFile.Rejected.v1
-spec:
-  topicName: evt.pay.bulk.rejected.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.pay.mandate.created.v1
+  name: evt.pay.mandate.v1
   namespace: kafka
   labels:
     strimzi.io/cluster: fintechbankx
@@ -563,9 +131,9 @@ metadata:
     fintechbankx.io/owner: svc-pay-recurring-mandates
   annotations:
     fintechbankx.io/contract: asyncapi/svc-pay-recurring-mandates.yaml
-    fintechbankx.io/event-type: Payments.Mandate.Created.v1
+    fintechbankx.io/event-types: Payments.Mandate.Created.v1,Payments.Mandate.PaymentAccepted.v1,Payments.Mandate.Revoked.v1
 spec:
-  topicName: evt.pay.mandate.created.v1
+  topicName: evt.pay.mandate.v1
   partitions: 3
   replicas: 3
   config:
@@ -577,55 +145,7 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: evt.pay.mandate.payment-accepted.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-pay-recurring-mandates
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-pay-recurring-mandates.yaml
-    fintechbankx.io/event-type: Payments.Mandate.PaymentAccepted.v1
-spec:
-  topicName: evt.pay.mandate.payment-accepted.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.pay.mandate.revoked.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-pay-recurring-mandates
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-pay-recurring-mandates.yaml
-    fintechbankx.io/event-type: Payments.Mandate.Revoked.v1
-spec:
-  topicName: evt.pay.mandate.revoked.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.cus.customer.created.v1
+  name: evt.cus.customer.v1
   namespace: kafka
   labels:
     strimzi.io/cluster: fintechbankx
@@ -635,9 +155,9 @@ metadata:
     fintechbankx.io/owner: svc-cus-profile-kyc
   annotations:
     fintechbankx.io/contract: asyncapi/svc-cus-profile-kyc.yaml
-    fintechbankx.io/event-type: Customer.Customer.Created.v1
+    fintechbankx.io/event-types: Customer.Customer.Created.v1,Customer.Customer.ContactUpdated.v1,Customer.Customer.CreditLimitUpdated.v1,Customer.Customer.CreditReserved.v1,Customer.Customer.CreditReleased.v1,Customer.Customer.CreditScoreUpdated.v1,Customer.Customer.KycStatusChanged.v1
 spec:
-  topicName: evt.cus.customer.created.v1
+  topicName: evt.cus.customer.v1
   partitions: 3
   replicas: 3
   config:
@@ -649,151 +169,7 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: evt.cus.customer.contact-updated.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-cus-profile-kyc
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-cus-profile-kyc.yaml
-    fintechbankx.io/event-type: Customer.Customer.ContactUpdated.v1
-spec:
-  topicName: evt.cus.customer.contact-updated.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.cus.customer.credit-limit-updated.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-cus-profile-kyc
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-cus-profile-kyc.yaml
-    fintechbankx.io/event-type: Customer.Customer.CreditLimitUpdated.v1
-spec:
-  topicName: evt.cus.customer.credit-limit-updated.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.cus.customer.credit-reserved.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-cus-profile-kyc
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-cus-profile-kyc.yaml
-    fintechbankx.io/event-type: Customer.Customer.CreditReserved.v1
-spec:
-  topicName: evt.cus.customer.credit-reserved.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.cus.customer.credit-released.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-cus-profile-kyc
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-cus-profile-kyc.yaml
-    fintechbankx.io/event-type: Customer.Customer.CreditReleased.v1
-spec:
-  topicName: evt.cus.customer.credit-released.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.cus.customer.credit-score-updated.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-cus-profile-kyc
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-cus-profile-kyc.yaml
-    fintechbankx.io/event-type: Customer.Customer.CreditScoreUpdated.v1
-spec:
-  topicName: evt.cus.customer.credit-score-updated.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.cus.customer.kyc-status-changed.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-cus-profile-kyc
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-cus-profile-kyc.yaml
-    fintechbankx.io/event-type: Customer.Customer.KycStatusChanged.v1
-spec:
-  topicName: evt.cus.customer.kyc-status-changed.v1
-  partitions: 3
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 604800000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.rsk.risk.assessed.v1
+  name: evt.rsk.risk.v1
   namespace: kafka
   labels:
     strimzi.io/cluster: fintechbankx
@@ -803,9 +179,9 @@ metadata:
     fintechbankx.io/owner: svc-rsk-decisioning
   annotations:
     fintechbankx.io/contract: asyncapi/svc-rsk-decisioning.yaml
-    fintechbankx.io/event-type: Risk.RiskAssessment.Assessed.v1
+    fintechbankx.io/event-types: Risk.RiskAssessment.Assessed.v1
 spec:
-  topicName: evt.rsk.risk.assessed.v1
+  topicName: evt.rsk.risk.v1
   partitions: 3
   replicas: 3
   config:
@@ -817,7 +193,7 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: evt.cmp.compliance.screened.v1
+  name: evt.cmp.compliance.v1
   namespace: kafka
   labels:
     strimzi.io/cluster: fintechbankx
@@ -827,9 +203,9 @@ metadata:
     fintechbankx.io/owner: svc-cmp-evidence
   annotations:
     fintechbankx.io/contract: asyncapi/svc-cmp-evidence.yaml
-    fintechbankx.io/event-type: Compliance.ComplianceScreening.Screened.v1
+    fintechbankx.io/event-types: Compliance.ComplianceScreening.Screened.v1
 spec:
-  topicName: evt.cmp.compliance.screened.v1
+  topicName: evt.cmp.compliance.v1
   partitions: 3
   replicas: 3
   config:
@@ -841,7 +217,7 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: evt.of.consent.created.v1
+  name: evt.of.consent.v1
   namespace: kafka
   labels:
     strimzi.io/cluster: fintechbankx
@@ -851,9 +227,9 @@ metadata:
     fintechbankx.io/owner: svc-of-consent-authorization
   annotations:
     fintechbankx.io/contract: asyncapi/svc-of-consent-authorization.yaml
-    fintechbankx.io/event-type: OpenFinance.Consent.Created.v1
+    fintechbankx.io/event-types: OpenFinance.Consent.Created.v1,OpenFinance.Consent.Authorized.v1,OpenFinance.Consent.Revoked.v1,OpenFinance.Consent.Expired.v1
 spec:
-  topicName: evt.of.consent.created.v1
+  topicName: evt.of.consent.v1
   partitions: 6
   replicas: 3
   config:
@@ -865,79 +241,7 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: evt.of.consent.authorized.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-of-consent-authorization
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-of-consent-authorization.yaml
-    fintechbankx.io/event-type: OpenFinance.Consent.Authorized.v1
-spec:
-  topicName: evt.of.consent.authorized.v1
-  partitions: 6
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 7776000000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.of.consent.revoked.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-of-consent-authorization
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-of-consent-authorization.yaml
-    fintechbankx.io/event-type: OpenFinance.Consent.Revoked.v1
-spec:
-  topicName: evt.of.consent.revoked.v1
-  partitions: 6
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 7776000000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.of.consent.expired.v1
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: fintechbankx
-    app.kubernetes.io/part-of: fintechbankx-event-streaming
-    app.kubernetes.io/managed-by: topic-catalog
-    fintechbankx.io/topic-kind: event
-    fintechbankx.io/owner: svc-of-consent-authorization
-  annotations:
-    fintechbankx.io/contract: asyncapi/svc-of-consent-authorization.yaml
-    fintechbankx.io/event-type: OpenFinance.Consent.Expired.v1
-spec:
-  topicName: evt.of.consent.expired.v1
-  partitions: 6
-  replicas: 3
-  config:
-    cleanup.policy: delete
-    retention.ms: 7776000000
-    min.insync.replicas: 2
-    max.message.bytes: 1048576
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: evt.of.payee.verification-completed.v1
+  name: evt.of.payee.v1
   namespace: kafka
   labels:
     strimzi.io/cluster: fintechbankx
@@ -947,9 +251,9 @@ metadata:
     fintechbankx.io/owner: svc-of-payee-verification
   annotations:
     fintechbankx.io/contract: asyncapi/svc-of-payee-verification.yaml
-    fintechbankx.io/event-type: OpenFinance.PayeeVerification.VerificationCompleted.v1
+    fintechbankx.io/event-types: OpenFinance.PayeeVerification.VerificationCompleted.v1
 spec:
-  topicName: evt.of.payee.verification-completed.v1
+  topicName: evt.of.payee.v1
   partitions: 6
   replicas: 3
   config:

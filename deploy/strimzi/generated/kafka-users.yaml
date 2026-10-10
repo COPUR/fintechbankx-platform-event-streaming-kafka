@@ -20,7 +20,7 @@ spec:
     acls:
       - resource:
           type: topic
-          name: evt.cmp.compliance.screened.v1
+          name: evt.cmp.compliance.v1
           patternType: literal
         operations:
           - Write
@@ -48,55 +48,7 @@ spec:
     acls:
       - resource:
           type: topic
-          name: evt.cus.customer.contact-updated.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.cus.customer.created.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.cus.customer.credit-limit-updated.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.cus.customer.credit-released.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.cus.customer.credit-reserved.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.cus.customer.credit-score-updated.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.cus.customer.kyc-status-changed.v1
+          name: evt.cus.customer.v1
           patternType: literal
         operations:
           - Write
@@ -124,38 +76,6 @@ spec:
     acls:
       - resource:
           type: topic
-          name: evt.ln.loan.approved.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.ln.loan.cancelled.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.ln.loan.created.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.ln.loan.disbursed.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
           name: evt.ln.loan.dlq.v1
           patternType: literal
         operations:
@@ -164,23 +84,7 @@ spec:
         host: "*"
       - resource:
           type: topic
-          name: evt.ln.loan.fully-paid.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.ln.loan.payment-made.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.ln.loan.rejected.v1
+          name: evt.ln.loan.v1
           patternType: literal
         operations:
           - Write
@@ -196,7 +100,7 @@ spec:
         host: "*"
       - resource:
           type: topic
-          name: evt.pay.payment.loan-payment-completed.v1
+          name: evt.pay.payment.v1
           patternType: literal
         operations:
           - Read
@@ -240,31 +144,7 @@ spec:
         host: "*"
       - resource:
           type: topic
-          name: evt.of.consent.authorized.v1
-          patternType: literal
-        operations:
-          - Read
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.of.consent.created.v1
-          patternType: literal
-        operations:
-          - Read
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.of.consent.expired.v1
-          patternType: literal
-        operations:
-          - Read
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.of.consent.revoked.v1
+          name: evt.of.consent.v1
           patternType: literal
         operations:
           - Read
@@ -316,31 +196,7 @@ spec:
         host: "*"
       - resource:
           type: topic
-          name: evt.of.consent.authorized.v1
-          patternType: literal
-        operations:
-          - Read
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.of.consent.created.v1
-          patternType: literal
-        operations:
-          - Read
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.of.consent.expired.v1
-          patternType: literal
-        operations:
-          - Read
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.of.consent.revoked.v1
+          name: evt.of.consent.v1
           patternType: literal
         operations:
           - Read
@@ -384,31 +240,7 @@ spec:
     acls:
       - resource:
           type: topic
-          name: evt.of.consent.authorized.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.of.consent.created.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.of.consent.expired.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.of.consent.revoked.v1
+          name: evt.of.consent.v1
           patternType: literal
         operations:
           - Write
@@ -436,7 +268,7 @@ spec:
     acls:
       - resource:
           type: topic
-          name: evt.of.payee.verification-completed.v1
+          name: evt.of.payee.v1
           patternType: literal
         operations:
           - Write
@@ -480,31 +312,7 @@ spec:
         host: "*"
       - resource:
           type: topic
-          name: evt.of.consent.authorized.v1
-          patternType: literal
-        operations:
-          - Read
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.of.consent.created.v1
-          patternType: literal
-        operations:
-          - Read
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.of.consent.expired.v1
-          patternType: literal
-        operations:
-          - Read
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.of.consent.revoked.v1
+          name: evt.of.consent.v1
           patternType: literal
         operations:
           - Read
@@ -540,23 +348,7 @@ spec:
     acls:
       - resource:
           type: topic
-          name: evt.pay.bulk.accepted.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.pay.bulk.completed.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.pay.bulk.rejected.v1
+          name: evt.pay.bulk.v1
           patternType: literal
         operations:
           - Write
@@ -584,71 +376,7 @@ spec:
     acls:
       - resource:
           type: topic
-          name: evt.pay.payment.cancelled.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.pay.payment.completed.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.pay.payment.created.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.pay.payment.failed.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.pay.payment.loan-payment-completed.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.pay.payment.loan-payment-created.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.pay.payment.loan-payment-failed.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.pay.payment.processing-started.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.pay.payment.refunded.v1
+          name: evt.pay.payment.v1
           patternType: literal
         operations:
           - Write
@@ -676,23 +404,7 @@ spec:
     acls:
       - resource:
           type: topic
-          name: evt.pay.mandate.created.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.pay.mandate.payment-accepted.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.pay.mandate.revoked.v1
+          name: evt.pay.mandate.v1
           patternType: literal
         operations:
           - Write
@@ -720,23 +432,7 @@ spec:
     acls:
       - resource:
           type: topic
-          name: evt.pay.rtp.accepted.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.pay.rtp.created.v1
-          patternType: literal
-        operations:
-          - Write
-          - Describe
-        host: "*"
-      - resource:
-          type: topic
-          name: evt.pay.rtp.rejected.v1
+          name: evt.pay.rtp.v1
           patternType: literal
         operations:
           - Write
@@ -764,7 +460,7 @@ spec:
     acls:
       - resource:
           type: topic
-          name: evt.rsk.risk.assessed.v1
+          name: evt.rsk.risk.v1
           patternType: literal
         operations:
           - Write

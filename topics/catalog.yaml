@@ -6,8 +6,18 @@
 # Everything under topics/generated/ and deploy/strimzi/generated/ is rendered
 # from this file by `npm run catalog:generate`; `npm test` fails if they drift.
 #
-# Rules enforced by scripts/catalog/catalog.mjs:
-#   - topic name  evt.<ctx>.<aggregate>.<event>.v<major>
+# Rules enforced by scripts/catalog/catalog.mjs (ADR-019, one topic per aggregate,
+# owner decision 2026-10-08):
+#   - topic name  evt.<ctx>.<aggregate>.v<major>: every event of the aggregate goes
+#     to it, keyed by aggregateId (UTF-8), named by its eventType (envelope and
+#     record header). The retired per-event form evt.<ctx>.<aggregate>.<event>.v<major>
+#     is rejected.
+#   - eventTypes lists every <Context>.<Aggregate>.<PastTenseEvent>.v<major> published
+#     on the topic. The event major is independent of the topic major: a breaking
+#     change to one event adds ...v2 to the same topic (dual publish). The topic
+#     major changes only with the record key, partition count or cleanup policy.
+#   - consumers name the eventTypes they handle; they skip every other type on the
+#     topic (commit the offset, never dead-letter)
 #   - DLQ name    evt.<ctx>.<aggregate>.dlq.v<major>   (one per namespace and major,
 #     only when that namespace's service consumes, or its owner sets
 #     dlq.reserved: true ahead of a planned consumer)
@@ -126,13 +136,15 @@ namespaces:
     consumersStatus: unknown
     consumers: []
     topics:
-      - {event: created, major: 1, eventType: Lending.Loan.Created.v1}
-      - {event: approved, major: 1, eventType: Lending.Loan.Approved.v1}
-      - {event: rejected, major: 1, eventType: Lending.Loan.Rejected.v1}
-      - {event: disbursed, major: 1, eventType: Lending.Loan.Disbursed.v1}
-      - {event: cancelled, major: 1, eventType: Lending.Loan.Cancelled.v1}
-      - {event: payment-made, major: 1, eventType: Lending.Loan.PaymentMade.v1}
-      - {event: fully-paid, major: 1, eventType: Lending.Loan.FullyPaid.v1}
+      - major: 1
+        eventTypes:
+          - Lending.Loan.Created.v1
+          - Lending.Loan.Approved.v1
+          - Lending.Loan.Rejected.v1
+          - Lending.Loan.Disbursed.v1
+          - Lending.Loan.Cancelled.v1
+          - Lending.Loan.PaymentMade.v1
+          - Lending.Loan.FullyPaid.v1
 
   - namespace: evt.pay.payment
     owner: svc-pay-initiation-settlement
@@ -147,22 +159,25 @@ namespaces:
     consumers:
       - service: svc-ln-loan-lifecycle
         group: cg.svc-ln-loan-lifecycle.loan-repayment-allocation.v1
-        topics: [evt.pay.payment.loan-payment-completed.v1]
+        topics: [evt.pay.payment.v1]
+        eventTypes: [Payments.Payment.LoanPaymentCompleted.v1]   # skips the other payment event types
         dlq: evt.ln.loan.dlq.v1   # consumer-owned DLQ (ADR-019)
         evidence: >-
           Confirmed by the loan-lifecycle service thread on 2026-10-08
           (repayment allocation listener, in progress); not yet in code on
           the scanned branches.
     topics:
-      - {event: created, major: 1, eventType: Payments.Payment.Created.v1}
-      - {event: processing-started, major: 1, eventType: Payments.Payment.ProcessingStarted.v1}
-      - {event: completed, major: 1, eventType: Payments.Payment.Completed.v1}
-      - {event: failed, major: 1, eventType: Payments.Payment.Failed.v1}
-      - {event: cancelled, major: 1, eventType: Payments.Payment.Cancelled.v1}
-      - {event: refunded, major: 1, eventType: Payments.Payment.Refunded.v1}
-      - {event: loan-payment-created, major: 1, eventType: Payments.Payment.LoanPaymentCreated.v1}
-      - {event: loan-payment-completed, major: 1, eventType: Payments.Payment.LoanPaymentCompleted.v1}
-      - {event: loan-payment-failed, major: 1, eventType: Payments.Payment.LoanPaymentFailed.v1}
+      - major: 1
+        eventTypes:
+          - Payments.Payment.Created.v1
+          - Payments.Payment.ProcessingStarted.v1
+          - Payments.Payment.Completed.v1
+          - Payments.Payment.Failed.v1
+          - Payments.Payment.Cancelled.v1
+          - Payments.Payment.Refunded.v1
+          - Payments.Payment.LoanPaymentCreated.v1
+          - Payments.Payment.LoanPaymentCompleted.v1
+          - Payments.Payment.LoanPaymentFailed.v1
 
   - namespace: evt.pay.rtp
     owner: svc-pay-request-to-pay
@@ -174,14 +189,17 @@ namespaces:
       thread on 2026-10-08). On main, KafkaPayRequestNotificationAdapter still
       publishes all three events to the legacy topic rtp.pay_requests.v1
       without the envelope; that topic is retired after the dual-publish
-      steps in docs/architecture/TOPIC_NAMING_MIGRATION.md (see gaps).
+      steps in docs/architecture/TOPIC_NAMING_MIGRATION.md (see gaps). The
+      relay writes evt.pay.rtp.v1 with the eventType header.
     # No consumers: confirmed by the request-to-pay service thread 2026-10-08.
     consumersStatus: unknown
     consumers: []
     topics:
-      - {event: created, major: 1, eventType: Payments.PayRequest.Created.v1}
-      - {event: accepted, major: 1, eventType: Payments.PayRequest.Accepted.v1}
-      - {event: rejected, major: 1, eventType: Payments.PayRequest.Rejected.v1}
+      - major: 1
+        eventTypes:
+          - Payments.PayRequest.Created.v1
+          - Payments.PayRequest.Accepted.v1
+          - Payments.PayRequest.Rejected.v1
 
   - namespace: evt.pay.bulk
     owner: svc-pay-bulk-orchestration
@@ -191,15 +209,18 @@ namespaces:
     implementationEvidence: >-
       Outbox relay in fintechbankx-lendingpayments-payment-orchestration-bulk-orchestration
       draft PR #13 (lending and payments thread, 2026-10-08). Records keyed
-      by fileId (topic names confirmed on PR #13 head 1ab37d2). The contract
+      by fileId (per-event topic names on PR #13 head 1ab37d2; the relay must
+      move to evt.pay.bulk.v1 with the eventType header, ADR-019). The contract
       is to be PR'd into the asyncapi catalog by the service thread.
     # No consumers: confirmed by the service thread 2026-10-08.
     consumersStatus: unknown
     consumers: []
     topics:
-      - {event: accepted, major: 1, eventType: Payments.BulkFile.Accepted.v1}
-      - {event: completed, major: 1, eventType: Payments.BulkFile.Completed.v1}
-      - {event: rejected, major: 1, eventType: Payments.BulkFile.Rejected.v1}
+      - major: 1
+        eventTypes:
+          - Payments.BulkFile.Accepted.v1
+          - Payments.BulkFile.Completed.v1
+          - Payments.BulkFile.Rejected.v1
 
   - namespace: evt.pay.mandate
     owner: svc-pay-recurring-mandates
@@ -209,15 +230,18 @@ namespaces:
     implementationEvidence: >-
       Outbox relay in fintechbankx-lendingpayments-payment-orchestration-recurring-mandates
       draft PR #13 (lending and payments thread, 2026-10-08), keyed by the
-      mandate id. The contract is to be PR'd into the asyncapi catalog by the
-      service thread.
+      mandate id; the relay must write evt.pay.mandate.v1 with the eventType
+      header (ADR-019). The contract is to be PR'd into the asyncapi catalog
+      by the service thread.
     # No consumers in PR #13; none confirmed by the service thread.
     consumersStatus: unknown
     consumers: []
     topics:
-      - {event: created, major: 1, eventType: Payments.Mandate.Created.v1}
-      - {event: payment-accepted, major: 1, eventType: Payments.Mandate.PaymentAccepted.v1}
-      - {event: revoked, major: 1, eventType: Payments.Mandate.Revoked.v1}
+      - major: 1
+        eventTypes:
+          - Payments.Mandate.Created.v1
+          - Payments.Mandate.PaymentAccepted.v1
+          - Payments.Mandate.Revoked.v1
 
   - namespace: evt.cus.customer
     owner: svc-cus-profile-kyc
@@ -230,13 +254,15 @@ namespaces:
     consumersStatus: unknown
     consumers: []
     topics:
-      - {event: created, major: 1, eventType: Customer.Customer.Created.v1}
-      - {event: contact-updated, major: 1, eventType: Customer.Customer.ContactUpdated.v1}
-      - {event: credit-limit-updated, major: 1, eventType: Customer.Customer.CreditLimitUpdated.v1}
-      - {event: credit-reserved, major: 1, eventType: Customer.Customer.CreditReserved.v1}
-      - {event: credit-released, major: 1, eventType: Customer.Customer.CreditReleased.v1}
-      - {event: credit-score-updated, major: 1, eventType: Customer.Customer.CreditScoreUpdated.v1}
-      - {event: kyc-status-changed, major: 1, eventType: Customer.Customer.KycStatusChanged.v1}   # customer thread 2026-10-08 (KYC status owned by customer)
+      - major: 1
+        eventTypes:
+          - Customer.Customer.Created.v1
+          - Customer.Customer.ContactUpdated.v1
+          - Customer.Customer.CreditLimitUpdated.v1
+          - Customer.Customer.CreditReserved.v1
+          - Customer.Customer.CreditReleased.v1
+          - Customer.Customer.CreditScoreUpdated.v1
+          - Customer.Customer.KycStatusChanged.v1   # customer thread 2026-10-08 (KYC status owned by customer)
 
   # Added on request of the risk/compliance thread. Their AsyncAPI contracts
   # are in asyncapi-catalog PR #11 (stacked on #10); eventTypes confirmed by
@@ -254,7 +280,9 @@ namespaces:
     consumersStatus: unknown
     consumers: []
     topics:
-      - {event: assessed, major: 1, eventType: Risk.RiskAssessment.Assessed.v1}
+      - major: 1
+        eventTypes:
+          - Risk.RiskAssessment.Assessed.v1
 
   - namespace: evt.cmp.compliance
     owner: svc-cmp-evidence
@@ -268,7 +296,9 @@ namespaces:
     consumersStatus: unknown
     consumers: []
     topics:
-      - {event: screened, major: 1, eventType: Compliance.ComplianceScreening.Screened.v1}
+      - major: 1
+        eventTypes:
+          - Compliance.ComplianceScreening.Screened.v1
 
   # Open finance (confirmed by the open-finance service thread, 2026-10-08).
   # EventTypes, partitions and retention confirmed by the contracts in
@@ -286,32 +316,41 @@ namespaces:
       Not yet in code on the scanned branches.
     # Retention 90 days, delete: consent projections in the consumers rebuild
     # by replaying from earliest, so the topic must hold every consent still
-    # alive. The thread asked for 30 days minimum, 90 preferred, or
-    # compact+delete. compact+delete is the alternative if consents can live
+    # alive. 6 partitions were confirmed for the per-event topics and carry
+    # over to evt.of.consent.v1; once a consumer exists the partition count is
+    # fixed (changing it is a topic major, ADR-019 section 3). The thread
+    # asked for 30 days minimum, 90 preferred, or compact+delete. compact+delete is the alternative if consents can live
     # longer than 90 days; it needs a per-topic exception to the
     # delete-only rule and a tombstone policy, so it is not used now.
     consumersStatus: known
     consumers:
       - service: svc-of-personal-financial-data
         group: cg.svc-of-personal-financial-data.consent-projection.v1
-        topics: [evt.of.consent.created.v1, evt.of.consent.authorized.v1, evt.of.consent.revoked.v1, evt.of.consent.expired.v1]
+        topics: [evt.of.consent.v1]
+        eventTypes: [OpenFinance.Consent.Created.v1, OpenFinance.Consent.Authorized.v1, OpenFinance.Consent.Revoked.v1, OpenFinance.Consent.Expired.v1]
         dlq: evt.of.account.dlq.v1
         evidence: Confirmed by the open-finance service thread (consent projection, in progress); not yet in code.
       - service: svc-of-business-financial-data
         group: cg.svc-of-business-financial-data.consent-projection.v1
-        topics: [evt.of.consent.created.v1, evt.of.consent.authorized.v1, evt.of.consent.revoked.v1, evt.of.consent.expired.v1]
+        topics: [evt.of.consent.v1]
+        eventTypes: [OpenFinance.Consent.Created.v1, OpenFinance.Consent.Authorized.v1, OpenFinance.Consent.Revoked.v1, OpenFinance.Consent.Expired.v1]
         dlq: evt.of.corporate.dlq.v1
         evidence: Confirmed by the open-finance service thread (consent projection, in progress); not yet in code.
       - service: svc-of-banking-metadata
         group: cg.svc-of-banking-metadata.consent-projection.v1
-        topics: [evt.of.consent.created.v1, evt.of.consent.authorized.v1, evt.of.consent.revoked.v1, evt.of.consent.expired.v1]
+        topics: [evt.of.consent.v1]
+        eventTypes: [OpenFinance.Consent.Created.v1, OpenFinance.Consent.Authorized.v1, OpenFinance.Consent.Revoked.v1, OpenFinance.Consent.Expired.v1]
         dlq: evt.of.metadata.dlq.v1
         evidence: Confirmed by the open-finance service thread (consent projection, in progress); not yet in code.
     topics:
-      - {event: created, major: 1, eventType: OpenFinance.Consent.Created.v1, partitions: 6, retentionMs: 7776000000}
-      - {event: authorized, major: 1, eventType: OpenFinance.Consent.Authorized.v1, partitions: 6, retentionMs: 7776000000}
-      - {event: revoked, major: 1, eventType: OpenFinance.Consent.Revoked.v1, partitions: 6, retentionMs: 7776000000}
-      - {event: expired, major: 1, eventType: OpenFinance.Consent.Expired.v1, partitions: 6, retentionMs: 7776000000}
+      - major: 1
+        partitions: 6
+        retentionMs: 7776000000
+        eventTypes:
+          - OpenFinance.Consent.Created.v1
+          - OpenFinance.Consent.Authorized.v1
+          - OpenFinance.Consent.Revoked.v1
+          - OpenFinance.Consent.Expired.v1
 
   - namespace: evt.of.payee
     owner: svc-of-payee-verification
@@ -325,7 +364,10 @@ namespaces:
     consumersStatus: unknown
     consumers: []
     topics:
-      - {event: verification-completed, major: 1, eventType: OpenFinance.PayeeVerification.VerificationCompleted.v1, partitions: 6}
+      - major: 1
+        partitions: 6
+        eventTypes:
+          - OpenFinance.PayeeVerification.VerificationCompleted.v1
 
 # Namespaces in the bootstrap manifest with no catalog topics, and producers
 # that write to non-standard topics. Not provisioned; listed so the gap is visible.
@@ -334,7 +376,7 @@ gaps:
     namespace: rtp.pay_requests.v1 (legacy)
     reason: >-
       Legacy topic still written by KafkaPayRequestNotificationAdapter on
-      main. To be retired once evt.pay.rtp.* is published through the outbox
+      main. To be retired once evt.pay.rtp.v1 is published through the outbox
       and the dual-publish criteria in TOPIC_NAMING_MIGRATION.md are met;
       kept under CREATE_LEGACY_TOPICS until then.
   - service: unassigned
