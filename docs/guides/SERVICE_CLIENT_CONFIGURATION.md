@@ -132,7 +132,21 @@ the reason recorded. Metrics (Micrometer names, Prometheus names in brackets; co
 |---|---|---|---|
 | `outbox.oldest.pending.age.seconds` (`outbox_oldest_pending_age_seconds`) | gauge | app, squad | pages the squad above 900 s for 5 min |
 | `outbox.send.failures` (`outbox_send_failures_total`) | counter | app, squad, `exception` (simple class name, no ids) | warning on a sustained failure rate |
-| `outbox.parked.events` (`outbox_parked_events_total`) | counter | app, squad, `exception` | alert on any increase |
+| `outbox.parked.events` (`outbox_parked_events_total`) | counter | app, squad, `exception` (simple class name, or `OperatorPark` when an operator parked the row) | `OutboxEventsParked`: warning on any increase |
+| `outbox.parked.rows` (`outbox_parked_rows`) | gauge | app (and the common `squad` tag); no exception, row, event or aggregate ids | `OutboxEventsParked` fallback: warning when it rose within 15 min and the service has no counter series in the last hour |
+
+`outbox.parked.rows` is the number of rows currently parked in the service's own outbox table (a `count` of parked
+rows, not a running total). It falls when the squad replays or discards a row. Register it at startup, so it exports
+`0` before the first park: Micrometer registers the counter lazily, on the first park, so until then the gauge is the
+only parked series. `OutboxParkedSignalMissing` (warning after 1 h) fires for a relay that exports
+`outbox_oldest_pending_age_seconds` but none of `outbox_parked_events_total`, `outbox_parked_rows` or the legacy
+gauge `outbox_parked_events`. Do not register a gauge named `outbox.parked.events`: that legacy gauge (relays built
+before the counter) has the counter's name, and the alert reads it only as a fallback.
+
+The alert rules are in `prometheus/rules/kafka-outbox.rules.yml` of `fintechbankx-platform-observability-sre-operations`.
+They key on `service_id`, which the PodMonitor copies from the pod label `fintechbankx.io/service-id`. Series without
+that label are not evaluated, so set the label on the pod; the service does not add a `service_id` tag itself. The rules
+route on the service's own `squad` tag (`management.metrics.tags`), falling back to the Kubernetes namespace.
 
 ## 3. Consumer
 
