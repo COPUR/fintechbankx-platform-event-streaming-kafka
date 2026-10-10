@@ -63,10 +63,14 @@ Status, as checked against the services' open pull request branches in October 2
   registered. Risk and compliance accept only `SASL_SSL` (Amazon MSK), customer `SASL_SSL` or `SSL`.
   They have no `fintechbankx.tls.enforce` and no `local` profile file: without `DB_SSL_ROOT_CERT` (local runs, tests)
   the guards skip.
-- The open-finance services (`fintechbankx-openfinance-*`) check `SASL_SSL` or `SSL` under the `aws` profile their
-  own charts render (three of them also under `kafka-msk` / `kafka-strimzi`), with `application-kafka-msk.yml` and
-  `application-kafka-strimzi.yml` where they use Kafka. Not activating `aws` (local runs, tests) turns the check off.
-  The shared chart never renders `aws`.
+- The open-finance services (`fintechbankx-openfinance-*`) check `SASL_SSL` or `SSL`, with `application-kafka-msk.yml`
+  and `application-kafka-strimzi.yml` where they use Kafka (atm and products have no Kafka client and check the
+  database URL only). The check runs whenever the deployment marker `FBX_DEPLOYED` is in the process environment,
+  which every open-finance chart renders itself (`"true"`), and otherwise under a profile: `aws` for atm, products,
+  consent and payee; any of `aws`, `kafka-msk` and `kafka-strimzi` for corporate, retail and metadata. Their charts
+  render `aws` with the Kafka profile (consent, corporate, payee), `aws` alone (atm, products) or the Kafka profile
+  alone (retail, metadata). Under the marker, startup also fails while a `local` profile is active. Without the marker
+  and those profiles (local runs, tests) the check is off. The shared chart renders neither `aws` nor `FBX_DEPLOYED`.
 
 Every other service, and every new one, adds the assertion in the first shape. Moving the second and third groups to it
 is proposed, not started: none of their branches has `fintechbankx.tls.enforce` or `application-local.yml`.
@@ -76,8 +80,8 @@ The laptop runtime (`PLAINTEXT` on `localhost:29092`, or `kafka:9092` inside the
 started against it sets `SPRING_PROFILES_ACTIVE=local` (the shared compose stack does this for every service). In the
 first group the `local` profile (`application-local.yml`, with the test resources) is the one place that sets the
 assertion's off switch `fintechbankx.tls.enforce: false`. The second group has no such switch: its guards skip while
-`DB_SSL_ROOT_CERT` is unset, and the shared compose stack does not set it. The third group's check is off while the
-`aws` profile is not active.
+`DB_SSL_ROOT_CERT` is unset, and the shared compose stack does not set it. The third group's check is off while
+`FBX_DEPLOYED` is unset and none of the profiles that turn it on (above) is active, as under `local` alone.
 
 The shared chart (`fintechbankx-service`) refuses the switch and every `spring.profiles.*` name, so values can set
 neither the switch nor `local`. The exact names and spellings it refuses are the name rules in the chart README
