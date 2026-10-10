@@ -31,9 +31,12 @@ refuses any user-set `spring.profiles.*` name (in `config`, `extraEnv`, `SPRING_
 the profile cannot be overridden or extended from values. Services with their own chart follow the same rule: they
 render the Kafka profile only as `kafka-msk` or `kafka-strimzi` (the consent, corporate and payee charts add `aws`;
 the atm and products charts, which have no Kafka client, render `aws` alone), and the guard they vendor (see the end of
-the next section) refuses every user-set `spring.profiles.*` name on the value routes its adapter maps, so `local`
-cannot be added through those routes. The payment-initiation-settlement chart renders a route the guard does not see,
-its `configTree` import (also at the end of the next section), through which a Secret can still add `local`.
+the next section) refuses every user-set `spring.profiles.*` name on the value routes its adapter maps. That does not
+yet keep `local` out of a deployment: two routes can still add it, both described at the end of the next section. One
+is the database CA mount of the twelve charts with a PostgreSQL database, a route their adapters map but whose path,
+key and ConfigMap the vendored guard does not pin, so values can mount a ConfigMap of their choice as
+`/app/config/application.yml`, which Spring Boot reads. The other is the payment-initiation-settlement chart's
+`configTree` import, a route the guard does not see, through which a Secret can add `local`.
 
 ### Startup TLS assertion
 
@@ -58,11 +61,10 @@ Status, as checked against the services' open pull request branches in October 2
   default enforces and only the `local` profile switches it off.
 - `fintechbankx-customer-profile-kyc-core`, `fintechbankx-riskcompliance-risk-decisioning-core` and
   `fintechbankx-riskcompliance-compliance-evidence-core` ship a `KafkaTlsGuard` (with a `DatabaseTlsGuard`) that runs
-  while the outbox relay is on and `DB_SSL_ROOT_CERT` is set, with `kafka-msk` and `kafka-strimzi` profiles. The
-  shared chart sets `DB_SSL_ROOT_CERT` only while `databaseCa.enabled` (the default); with it off the guards are not
-  registered. Risk and compliance accept only `SASL_SSL` (Amazon MSK), customer `SASL_SSL` or `SSL`.
-  They have no `fintechbankx.tls.enforce` and no `local` profile file: without `DB_SSL_ROOT_CERT` (local runs, tests)
-  the guards skip.
+  whenever `DB_SSL_ROOT_CERT` is set, whether or not the outbox relay is on, with `kafka-msk` and `kafka-strimzi`
+  profiles. Their own charts always set `DB_SSL_ROOT_CERT`; the shared chart sets it only while `databaseCa.enabled`
+  (the default). All three accept `SASL_SSL` or `SSL`. They have no `fintechbankx.tls.enforce` and no `local` profile
+  file: without `DB_SSL_ROOT_CERT` (`databaseCa.enabled` off on the shared chart, local runs, tests) the guards skip.
 - The open-finance services (`fintechbankx-openfinance-*`) check `SASL_SSL` or `SSL`, with `application-kafka-msk.yml`
   and `application-kafka-strimzi.yml` where they use Kafka (atm and products have no Kafka client and check the
   database URL only). The check runs whenever the deployment marker `FBX_DEPLOYED` is in the process environment,
@@ -79,11 +81,13 @@ The laptop runtime (`PLAINTEXT` on `localhost:29092`, or `kafka:9092` inside the
 `fintechbankx-platform-delivery-iac-cicd-templates`) is refused by the assertion outside local runs, so a service
 started against it sets `SPRING_PROFILES_ACTIVE=local` (the shared compose stack does this for every service). In the
 first group the `local` profile (`application-local.yml`, with the test resources) is the one place in the service's
-own configuration that sets the assertion's off switch `fintechbankx.tls.enforce: false` (a
-payment-initiation-settlement deployment can still set it through the configtree import described at the end of this
-section). The second group has no such switch: its guards skip while `DB_SSL_ROOT_CERT` is unset, and the shared
-compose stack does not set it. The third group's check is off while `FBX_DEPLOYED` is unset and none of the profiles
-that turn it on (above) is active, as under `local` alone.
+own configuration that sets the assertion's off switch `fintechbankx.tls.enforce: false`. A deployment can still set
+the switch, or add `local`, from outside the image in two ways today, both described at the end of this section: in
+all five services a ConfigMap mounted through the database CA route as `/app/config/application.yml`, and in
+payment-initiation-settlement a key of the Secret behind the configtree import. The second group has no such switch:
+its guards skip while `DB_SSL_ROOT_CERT` is unset, and the shared compose stack does not set it. The third group's
+check is off while `FBX_DEPLOYED` is unset and none of the profiles that turn it on (above) is active, as under `local`
+alone.
 
 The shared chart (`fintechbankx-service`) refuses the switch and every `spring.profiles.*` name, so values can set
 neither the switch nor `local`. The exact names and spellings it refuses are the name rules in the chart README
@@ -93,10 +97,40 @@ guard (same README, section "Vendoring the guard"): each copies the shared chart
 and calls `fbx.guard` through an adapter that maps the chart's own value names to the guard's input routes, so it
 refuses the same names on every route the adapter maps. As checked against the open pull request branches in October
 2026, the charts of all the services named in this section do so: loan-lifecycle-core, the four payment-orchestration
-charts, customer, risk, compliance and the seven open-finance charts. A service that does not vendor the guard depends
-on its own chart's check.
+charts, customer, risk, compliance and the seven open-finance charts, all fifteen with the guard of commit `a4f0072`
+(sha256 `1fd684735383301baf3052c5d8978dd86edee1ac1c66ebfb944a8a6a166f4c92`). A service that does not vendor the guard
+depends on its own chart's check.
 
-One of those charts renders a route the guard does not see. With `configTree.enabled` (default `false`) the
+Two routes carry Spring configuration into a deployment without the guard reading it: the database CA mount and the
+payment-initiation-settlement `configTree` import.
+
+The database CA mount. The twelve charts with a PostgreSQL database (loan-lifecycle-core, the four
+payment-orchestration charts, customer, risk, compliance, atm, consent, payee and products) mount the RDS CA bundle
+from values: `databaseCa.*` (loan-lifecycle, initiation-settlement, request-to-pay, customer, risk, compliance),
+`rdsCaBundle.*` (bulk-orchestration, recurring-mandates) or `databaseCaBundle.*` (atm, consent, payee, products), each
+with `mountPath`, `key` and `configMapName`. Their adapters pass `mountPath` and `key` to the guard, and the only check
+the vendored `a4f0072` guard makes on them is that every PostgreSQL JDBC URL it reads (`config.DB_URL` and any other)
+sets `sslrootcert=<mountPath>/<key>`: it accepts any path, key and ConfigMap. With `mountPath` `/app/config`, `key`
+`application.yml`, a `configMapName` of the deployer's choice and `sslrootcert=/app/config/application.yml` in those
+URLs, each of the twelve charts renders and mounts that ConfigMap item as `/app/config/application.yml` in the
+service's pods. `/app` is the working directory
+of every service image (`WORKDIR /app`, exec-form `ENTRYPOINT`, no `workingDir` in the charts), and Spring Boot loads
+`optional:file:./config/` by default, so the file becomes part of the service's configuration, and neither the guard
+nor the chart reads it. In the five services of the first group a file with `spring.profiles.include: local` adds the
+`local` profile next to the chart's Kafka profile, so the service's `application-local.yml` turns the assertion off,
+and a file with `fintechbankx.tls.enforce: false` sets the switch directly (both checked with Spring Boot 3.3.6 and each
+service's own configuration files). In customer, risk and compliance the mount is accepted too; they have neither a
+`local` profile file nor the switch. In atm, consent, payee and products it is accepted too, and under `FBX_DEPLOYED`
+startup fails while `local` is active. The shared chart cannot mount such a file: its schema accepts only a
+`databaseCa.key` ending in `.pem`. From commit `9308268` of `fintechbankx-platform-delivery-iac-cicd-templates` on
+(`_helpers.tpl` sha256 `eec404b8caedae20e66c0dbdc7b81c3e9479998b127c427de3f04d8ee158dd87`) the guard closes this
+route: while the CA mount is enabled it requires `mountPath` `/etc/fintechbankx/rds-ca`, `key` `global-bundle.pem`
+and, when the adapter passes it, `configMapName` `rds-ca-bundle`. A service chart that still vendors `a4f0072`, as
+all fifteen do, accepts the mount until it re-vendors the guard; when it does, its adapter should pass `configMapName`
+too, so that the ConfigMap is pinned as well. Until then keep these three values at the chart defaults
+(`/etc/fintechbankx/rds-ca`, `global-bundle.pem`, `rds-ca-bundle`) and review any change to them.
+
+The `configTree` import, a route the guard does not see. With `configTree.enabled` (default `false`) the
 payment-initiation-settlement chart sets `SPRING_CONFIG_IMPORT=optional:configtree:/etc/fintechbankx/config/` and
 mounts the Secret named in `configTree.secretName` there. Every key of that Secret becomes a Spring property, and
 neither the guard nor the chart reads the key names: a key `spring.profiles.include` with the value `local` adds the
