@@ -31,7 +31,9 @@ refuses any user-set `spring.profiles.*` name (in `config`, `extraEnv`, `SPRING_
 the profile cannot be overridden or extended from values. Services with their own chart follow the same rule: they
 render the Kafka profile only as `kafka-msk` or `kafka-strimzi` (the consent, corporate and payee charts add `aws`;
 the atm and products charts, which have no Kafka client, render `aws` alone), and the guard they vendor (see the end of
-the next section) refuses every user-set `spring.profiles.*` name, so `local` cannot be added.
+the next section) refuses every user-set `spring.profiles.*` name on the value routes its adapter maps, so `local`
+cannot be added through those routes. The payment-initiation-settlement chart renders a route the guard does not see,
+its `configTree` import (also at the end of the next section), through which a Secret can still add `local`.
 
 ### Startup TLS assertion
 
@@ -87,6 +89,16 @@ refuses the same names on every route the adapter maps. As checked against the o
 2026, the charts of all the services named in this section do so: loan-lifecycle-core, the four payment-orchestration
 charts, customer, risk, compliance and the seven open-finance charts. A service that does not vendor the guard depends
 on its own chart's check.
+
+One of those charts renders a route the guard does not see. With `configTree.enabled` (default `false`) the
+payment-initiation-settlement chart sets `SPRING_CONFIG_IMPORT=optional:configtree:/etc/fintechbankx/config/` and
+mounts the Secret named in `configTree.secretName` there. Every key of that Secret becomes a Spring property, and
+neither the guard nor the chart reads the key names: a key `spring.profiles.include` with the value `local` adds the
+`local` profile next to the chart's Kafka profile, so the service's `application-local.yml` turns the assertion off,
+and a key `fintechbankx.tls.enforce` with the value `false` sets the switch directly (both checked with Spring Boot
+3.3.6 and the service's own configuration files). That import is outside step 3 of "Vendoring the guard" ("Render only
+what the guard has seen"). Until the chart checks those keys or drops the import, leave `configTree.enabled` off, or
+review every key of the Secret before turning it on.
 
 ### Amazon MSK: `application-kafka-msk.yml`
 
