@@ -122,13 +122,13 @@ and a file with `fintechbankx.tls.enforce: false` sets the switch directly (both
 service's own configuration files). In customer, risk and compliance the mount is accepted too; they have neither a
 `local` profile file nor the switch. In atm, consent, payee and products it is accepted too, and under `FBX_DEPLOYED`
 startup fails while `local` is active. The shared chart cannot mount such a file: its schema accepts only a
-`databaseCa.key` ending in `.pem`. From commit `9308268` of `fintechbankx-platform-delivery-iac-cicd-templates` on
-(`_helpers.tpl` sha256 `eec404b8caedae20e66c0dbdc7b81c3e9479998b127c427de3f04d8ee158dd87`) the guard closes this
+`databaseCa.key` ending in `.pem`. From commit `6b6c317` of `fintechbankx-platform-delivery-iac-cicd-templates` on
+(`_helpers.tpl` sha256 `8ba2e4a11ead019c25bf0a01e4fe4bbabb6fef0e1980e5fa828ccb9f5673f8ba`) the guard closes this
 route: while the CA mount is enabled it requires `mountPath` `/etc/fintechbankx/rds-ca`, `key` `global-bundle.pem`
-and, when the adapter passes it, `configMapName` `rds-ca-bundle`. A service chart that still vendors `a4f0072`, as
-all fifteen do, accepts the mount until it re-vendors the guard; when it does, its adapter should pass `configMapName`
-too, so that the ConfigMap is pinned as well. Until then keep these three values at the chart defaults
-(`/etc/fintechbankx/rds-ca`, `global-bundle.pem`, `rds-ca-bundle`) and review any change to them.
+and `configMapName` `rds-ca-bundle`, so a chart that re-vendors it must pass `configMapName` from its adapter too. A
+service chart that still vendors `a4f0072`, as all fifteen do, accepts the mount until it re-vendors the guard. Until
+then keep these three values at the chart defaults (`/etc/fintechbankx/rds-ca`, `global-bundle.pem`,
+`rds-ca-bundle`) and review any change to them.
 
 The `configTree` import, a route the guard does not see. With `configTree.enabled` (default `false`) the
 payment-initiation-settlement chart sets `SPRING_CONFIG_IMPORT=optional:configtree:/etc/fintechbankx/config/` and
