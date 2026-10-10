@@ -1,0 +1,110 @@
+# FinTechBankX Kafka cluster on Strimzi (KRaft, node pools). Status: Proposed.
+#
+# Pins: Strimzi operator 0.47.0, Kafka 4.0.0. Move both together and check the
+# operator's supported Kafka versions before changing either.
+#
+# - Only a TLS listener with client-certificate auth (KafkaUser type tls);
+#   no plaintext listener. Authorization simple (ACLs from KafkaUser).
+# - RF 3 / min.insync.replicas 2 for every topic and internal topic, so one
+#   broker or zone can be lost without refusing acks=all writes.
+# - Topics only via KafkaTopic (generated from topics/catalog.yaml):
+#   auto.create.topics.enable=false.
+# - Rack awareness on topology.kubernetes.io/zone spreads replicas over zones;
+#   RackAwareReplicaSelector lets consumers fetch from a same-zone follower
+#   (clients set client.rack, see docs/guides/SERVICE_CLIENT_CONFIGURATION.md).
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: fintechbankx
+  namespace: kafka
+  labels:
+    app.kubernetes.io/part-of: fintechbankx-event-streaming
+  annotations:
+    strimzi.io/node-pools: enabled
+    strimzi.io/kraft: enabled
+spec:
+  kafka:
+    version: 4.0.0
+    metadataVersion: 4.0-IV3
+    rack:
+      topologyKey: topology.kubernetes.io/zone
+    listeners:
+      - name: tls
+        port: 9093
+        type: internal
+        tls: true
+        authentication:
+          type: tls
+        # Strimzi renders a NetworkPolicy from this: only bounded-context
+        # namespaces (platform contract label) reach the listener.
+        networkPolicyPeers:
+          - namespaceSelector:
+              matchExpressions:
+                - key: fintechbankx.io/context
+                  operator: In
+                  values:
+                    - lending
+                    - payments
+                    - customer
+                    - risk
+                    - compliance
+                    - open-finance
+    authorization:
+      type: simple
+    config:
+      auto.create.topics.enable: false
+      default.replication.factor: 3
+      min.insync.replicas: 2
+      num.partitions: 3
+      offsets.topic.replication.factor: 3
+      transaction.state.log.replication.factor: 3
+      transaction.state.log.min.isr: 2
+      unclean.leader.election.enable: false
+      replica.selector.class: org.apache.kafka.common.replica.RackAwareReplicaSelector
+      ssl.enabled.protocols: TLSv1.3
+      ssl.protocol: TLSv1.3
+    metricsConfig:
+      type: jmxPrometheusExporter
+      valueFrom:
+        configMapKeyRef:
+          name: fintechbankx-kafka-metrics
+          key: kafka-metrics-config.yml
+    template:
+      podDisruptionBudget:
+        maxUnavailable: 1
+  entityOperator:
+    topicOperator:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          memory: 256Mi
+    userOperator:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          memory: 256Mi
+    template:
+      pod:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: "false"
+  # Consumer lag and topic offsets for the catalog topics and cg.* groups
+  # (replaces the monolith's standalone kafka-exporter container).
+  kafkaExporter:
+    topicRegex: "evt\\..*"
+    groupRegex: "cg\\..*"
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 128Mi
+    template:
+      pod:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: "false"

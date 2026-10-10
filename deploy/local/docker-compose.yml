@@ -1,0 +1,54 @@
+# Local single-broker Kafka (KRaft, no ZooKeeper) with the catalog topics.
+# For laptops and service integration tests only: PLAINTEXT, RF 1. Shared
+# clusters use deploy/strimzi (TLS, RF 3) or Amazon MSK (IAM, RF 3).
+#
+#   docker compose -f deploy/local/docker-compose.yml up -d
+#   services: KAFKA_BOOTSTRAP_SERVERS=localhost:29092 KAFKA_SECURITY_PROTOCOL=PLAINTEXT
+#
+# Replaces the monolith's zookeeper + kafka + kafka-topic-init services.
+name: fintechbankx-kafka-local
+
+services:
+  kafka:
+    image: confluentinc/cp-kafka:7.9.8
+    hostname: kafka
+    environment:
+      # Base64 of uuid5(DNS, "kafka-local.fintechbankx"); any fixed 22-char id works locally.
+      CLUSTER_ID: T-ELaTAgUxm_j7DpuTtlaQ
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,PLAINTEXT_HOST://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    ports:
+      - "127.0.0.1:29092:29092"
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+
+  topic-init:
+    image: confluentinc/cp-kafka:7.9.8
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER: kafka:9092
+      REPLICATION_FACTOR: "1"
+      MIN_INSYNC_REPLICAS: "1"
+      TOPICS_FILE: /opt/fbx/topics/generated/topics.tsv
+    volumes:
+      - ../../scripts/kafka:/opt/fbx/scripts/kafka:ro
+      - ../../topics/generated:/opt/fbx/topics/generated:ro
+    entrypoint: ["bash", "/opt/fbx/scripts/kafka/create-topics.sh"]
+    restart: "no"

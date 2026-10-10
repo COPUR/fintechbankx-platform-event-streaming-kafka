@@ -1,5 +1,9 @@
 # 🐳 Enhanced Enterprise Banking System - Docker Architecture
 
+> **Historical reference (copied from the monolith on 2026-03-15).** It describes the monolith's Docker setup
+> (ZooKeeper, `:latest` images, single-replica Kafka) and is not how this repository runs Kafka. Current deployment:
+> `deploy/strimzi` (in-cluster), `deploy/msk` (AWS), `deploy/local` (laptop, KRaft); topics from `topics/catalog.yaml`.
+
 ## 📖 Overview
 
 This document provides comprehensive documentation for the Docker-based deployment architecture of the Enhanced Enterprise Banking System. Our containerization strategy supports secure microservices deployment with zero-trust networking, OAuth 2.1 authentication, and comprehensive observability.
