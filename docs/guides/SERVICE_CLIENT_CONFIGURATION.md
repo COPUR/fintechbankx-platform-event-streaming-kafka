@@ -46,7 +46,9 @@ to start when the assertion fails:
   turned off; no service sets it, and only consent and payee check it explicitly, refusing an empty or `none` value).
 
 The same assertion checks the database URL (`sslmode=verify-full`); see the chart README section "Service-side TLS
-assertion" in `fintechbankx-platform-delivery-iac-cicd-templates`.
+assertion" in `fintechbankx-platform-delivery-iac-cicd-templates` at commit `cc26a97` or later. That README agrees with
+this guide from that commit on; its earlier commits describe the services before the pull request heads the status
+below was checked against.
 
 Status, as checked against the services' open pull request branches in October 2026:
 
@@ -80,10 +82,10 @@ or the switch, and the guard refuses both on the value routes its adapter maps (
 The shared chart (`fintechbankx-service`) refuses the switch and every `spring.profiles.*` name, so values can set
 neither the switch nor `local`. The exact names and spellings it refuses are the name rules in the chart README
 section "Datasource and TLS guard" (`charts/fintechbankx-service/README.md` in
-`fintechbankx-platform-delivery-iac-cicd-templates`); this guide does not repeat them. The service charts vendor that
-guard (same README, section "Vendoring the guard"): each copies the shared chart's `templates/_helpers.tpl` unchanged
-and calls `fbx.guard` through an adapter that maps the chart's own value names to the guard's input routes, so it
-refuses the same names on every route the adapter maps.
+`fintechbankx-platform-delivery-iac-cicd-templates`, commit `cc26a97` or later); this guide does not repeat them. The
+service charts vendor that guard (same README, section "Vendoring the guard"): each copies the shared chart's
+`templates/_helpers.tpl` unchanged and calls `fbx.guard` through an adapter that maps the chart's own value names to the
+guard's input routes, so it refuses the same names on every route the adapter maps.
 
 Service charts must vendor the guard of `fintechbankx-platform-delivery-iac-cicd-templates` commit `6b6c317` or later
 (`_helpers.tpl` sha256 `8ba2e4a11ead019c25bf0a01e4fe4bbabb6fef0e1980e5fa828ccb9f5673f8ba`), copied without a header
