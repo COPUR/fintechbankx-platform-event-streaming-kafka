@@ -10,9 +10,9 @@ known consumers. Every other topic list in this repository is generated from it.
 Topics are **one per aggregate** (ADR-019, owner decision 2026-10-08): `evt.<ctx>.<aggregate>.v<major>`, record key
 `aggregateId` (UTF-8), the event named by the `eventType` header. Today: `evt.ln.loan.v1`, `evt.pay.payment.v1`,
 `evt.pay.rtp.v1`, `evt.pay.bulk.v1`, `evt.pay.mandate.v1`, `evt.cus.customer.v1`, `evt.rsk.risk.v1`,
-`evt.cmp.compliance.v1`, `evt.of.consent.v1` and `evt.of.payee.v1`, plus the consumer-owned DLQs. The per-event topics
-(`evt.<ctx>.<aggregate>.<event>.v1`) were removed without a dual-run because nothing published to them (ADR-019
-section 8).
+`evt.cmp.compliance.v1`, `evt.of.consent.v1`, `evt.of.payee.v1` and `evt.acc.account.v1` (accounts ledger), plus the
+consumer-owned DLQs. The per-event topics (`evt.<ctx>.<aggregate>.<event>.v1`) were removed without a dual-run because
+nothing published to them (ADR-019 section 8).
 
 | Generated file | Used by |
 |---|---|
@@ -72,6 +72,12 @@ address or `$ref`; an entry without `channels` covers every aggregate channel), 
 in `fintechbankx-governance-architecture-enablement-enterprise-architecture` (main, 2026-10-08). CI has no access to
 that repository, so the copy is vendored. Refresh it when the manifest changes and check it with
 `node scripts/catalog/generate.mjs --check --manifest <enterprise-architecture-checkout>/<path above>`.
+
+One row is ahead of that source: `svc-acc-accounts-ledger` (repository
+`neo-fintechbankx-corebanking-accounts-ledger-service`, context `core_banking`, namespace `evt.acc.account`; ADR-030,
+Proposed). Governance adds the same row to the enterprise-architecture manifest; until then the `--manifest` check
+above fails with `svc-acc-accounts-ledger: not in the bootstrap manifest` (2 errors). The row's tribe and squad come
+from the service README (Core Banking Tribe, Core Banking Accounts Squad); its wave (4) is a proposal for that review.
 
 ## Consumers today
 

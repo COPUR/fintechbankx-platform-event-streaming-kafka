@@ -23,8 +23,9 @@ The standard topics are defined in [`topics/catalog.yaml`](../../topics/catalog.
 `scripts/kafka/create-topics.sh` creates them from the generated list; the legacy dotted topics are created only with
 `CREATE_LEGACY_TOPICS=true`. The inventory below is the original 2026-10-07 analysis, restated for aggregate topics;
 the catalog has since added `Risk.RiskAssessment.Assessed.v1` on `evt.rsk.risk.v1` and
-`Compliance.ComplianceScreening.Screened.v1` on `evt.cmp.compliance.v1` (contract-only), and the bulk, mandate,
-consent and payee aggregate topics.
+`Compliance.ComplianceScreening.Screened.v1` on `evt.cmp.compliance.v1` (contract-only), the bulk, mandate,
+consent and payee aggregate topics, and the accounts ledger's `evt.acc.account.v1` (`CoreBanking.Account.*.v1`; a new
+service with no legacy topic in `LEGACY_TOPICS`).
 
 ## 1. Event inventory (original source of the catalog)
 
