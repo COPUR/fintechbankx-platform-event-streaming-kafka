@@ -6,10 +6,10 @@ import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 
 // The two publication-guardrails scans are governance's scan steps, taken byte for byte.
-// Governance's fixture checker reads each scan from steps[1] of its job, so each scan job is
-// the checkout and then the scan, with no step in between. Each scan installs a pinned
-// ripgrep itself and checks for rg before it first runs rg, so a missing rg fails the step
-// instead of letting it pass with nothing scanned.
+// Governance's fixture checker finds each scan by its step name, and the secret scan job runs
+// that checker against its own fixtures before it scans. Each scan installs a pinned ripgrep
+// itself and checks for rg before it first runs rg, so a missing rg fails the step instead of
+// letting it pass with nothing scanned.
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const workflowsDir = path.join(repoRoot, ".github", "workflows");
@@ -38,13 +38,20 @@ test("the workflow token is read-only by default", () => {
   assert.deepEqual(guardrails.permissions, { contents: "read" });
 });
 
-test("each scan job is the checkout and then the scan", () => {
+const SCAN_STEPS = {
+  "local-path-leak-check": ["Detect local path or identity leakage"],
+  "secret-pattern-scan": ["Check the scan against its fixtures", "Scan secret-like patterns"],
+};
+
+test("each scan job is the checkout and then governance's named steps", () => {
   for (const id of SCAN_JOBS) {
     const steps = guardrails.jobs[id].steps;
-    assert.equal(steps.length, 2, id);
     assert.match(steps[0].uses ?? "", /^actions\/checkout@/, id);
-    assert.equal(typeof steps[1].run, "string", id);
+    assert.deepEqual(steps.slice(1).map((s) => s.name), SCAN_STEPS[id], id);
+    for (const step of steps.slice(1)) assert.equal(typeof step.run, "string", `${id}/${step.name}`);
   }
+  const fixtures = guardrails.jobs["secret-pattern-scan"].steps[1].run.trim();
+  assert.equal(fixtures, "bash scripts/ci/check-guardrail-fixtures.sh .github/workflows/publication-guardrails.yml");
 });
 
 test("every step that runs rg checks for it first", () => {
