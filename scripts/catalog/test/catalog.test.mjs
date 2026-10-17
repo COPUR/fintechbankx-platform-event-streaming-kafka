@@ -137,6 +137,7 @@ const AGGREGATE_TOPICS = [
   "evt.cmp.compliance.v1",
   "evt.of.consent.v1",
   "evt.of.payee.v1",
+  "evt.acc.account.v1",
 ];
 
 test("the committed catalog has exactly one topic per aggregate and no per-event topic (ADR-019)", () => {
@@ -171,6 +172,114 @@ test("the committed catalog keeps every event type on its aggregate topic", () =
   const consent = resolveTopics(catalog).find((t) => t.name === "evt.of.consent.v1");
   assert.equal(consent.partitions, 6);
   assert.equal(consent.retentionMs, 7776000000);
+});
+
+// Accounts ledger (neo-fintechbankx-corebanking-accounts-ledger-service PR #1 at 2db7a04): provider contract
+// api/asyncapi/svc-acc-accounts-ledger.yaml, chart deploy/helm/accounts-ledger-service.
+const LEDGER = "svc-acc-accounts-ledger";
+const LEDGER_TOPIC = "evt.acc.account.v1";
+const LEDGER_EVENT_TYPES = [
+  "CoreBanking.Account.Opened.v1",
+  "CoreBanking.Account.Frozen.v1",
+  "CoreBanking.Account.Unfrozen.v1",
+  "CoreBanking.Account.Closed.v1",
+  "CoreBanking.Account.Debited.v1",
+  "CoreBanking.Account.Credited.v1",
+];
+
+test("the accounts ledger owns evt.acc.account.v1 under its bootstrap manifest row", () => {
+  const manifest = loadManifest(path.join(repoRoot, "topics/registry/repository-bootstrap-manifest.csv"));
+  const row = manifest.get(LEDGER);
+  assert.ok(row, `${LEDGER} has no bootstrap manifest row`);
+  assert.equal(row.repo, "neo-fintechbankx-corebanking-accounts-ledger-service");
+  assert.equal(row.context, "core_banking");
+  assert.equal(row.app_id, "app.acc.accounts-ledger");
+  assert.equal(row.db_prod_pattern, "db_acc_accounts_ledger_prod");
+  assert.equal(row.event_namespace, "evt.acc.account");
+
+  const catalog = loadCatalog(path.join(repoRoot, "topics/catalog.yaml"));
+  assert.equal(catalog.defaults.ctxCodeToContext.acc, "CoreBanking");
+  assert.deepEqual(catalog.services[LEDGER], {
+    eventNamespace: "evt.acc.account",
+    k8sNamespace: "corebanking",
+    serviceAccount: "accounts-ledger-service",
+  });
+  const topics = resolveTopics(catalog);
+  const ledger = topics.find((t) => t.name === LEDGER_TOPIC);
+  assert.ok(ledger, `${LEDGER_TOPIC} is not in the catalog`);
+  assert.equal(ledger.kind, "event");
+  assert.equal(ledger.owner, LEDGER);
+  assert.deepEqual(ledger.producers, [LEDGER], "the owner is the only producer");
+  assert.deepEqual(ledger.eventTypes, LEDGER_EVENT_TYPES);
+  assert.equal(ledger.contract, `asyncapi/${LEDGER}.yaml`);
+  assert.equal(ledger.implementation, "outbox-relay");
+  // Same values as the contract's kafka binding: partitions 3, replicas 3, delete, 7 days, 1 MiB.
+  assert.equal(ledger.partitions, 3);
+  assert.equal(ledger.replicationFactor, 3);
+  assert.equal(ledger.minInsyncReplicas, 2);
+  assert.equal(ledger.cleanupPolicy, "delete");
+  assert.equal(ledger.retentionMs, 604800000);
+  assert.equal(ledger.maxMessageBytes, 1048576);
+  assert.deepEqual(ledger.consumers, [], "no consumer is declared yet");
+  assert.equal(ledger.consumersStatus, "unknown");
+  assert.equal(topics.find((t) => t.name === "evt.acc.account.dlq.v1"), undefined, "a producer-only namespace has no DLQ");
+});
+
+test("the accounts ledger gets producer-only access on both runtimes, for its runtime service account only", () => {
+  const access = JSON.parse(fs.readFileSync(path.join(repoRoot, "topics/generated/msk-client-access.json"), "utf8")).services;
+  assert.deepEqual(access[LEDGER], {
+    kubernetes_namespace: "corebanking",
+    service_account: "accounts-ledger-service",
+    produce_topics: [LEDGER_TOPIC],
+    produce_topic_prefixes: ["evt.acc.account."],
+    consume_topics: [],
+    consumer_groups: [],
+    consumer_group_prefixes: [],
+  });
+  // The Flyway migration Job's hook service account talks only to Aurora: no IRSA subject in corebanking but the service's.
+  const corebanking = Object.entries(access).filter(([, a]) => a.kubernetes_namespace === "corebanking");
+  assert.deepEqual(corebanking.map(([id, a]) => `${id}:${a.service_account}`), [`${LEDGER}:accounts-ledger-service`]);
+  for (const [id, a] of Object.entries(access)) {
+    if (id !== LEDGER) {
+      assert.ok(!a.produce_topics.includes(LEDGER_TOPIC), `${id} must not write ${LEDGER_TOPIC}`);
+      assert.ok(!a.produce_topic_prefixes.some((p) => LEDGER_TOPIC.startsWith(p)), `${id} must not hold a prefix covering ${LEDGER_TOPIC}`);
+      assert.ok(!a.consume_topics.includes(LEDGER_TOPIC), `${id} reads ${LEDGER_TOPIC} without a catalog consumer entry`);
+    }
+  }
+
+  const users = YAML.parseAllDocuments(fs.readFileSync(path.join(repoRoot, "deploy/strimzi/generated/kafka-users.yaml"), "utf8")).map((d) => d.toJS());
+  const user = users.find((d) => d.metadata.name === LEDGER);
+  assert.ok(user, `no KafkaUser ${LEDGER}`);
+  assert.equal(user.kind, "KafkaUser");
+  assert.equal(user.metadata.namespace, "kafka");
+  assert.equal(user.metadata.labels["strimzi.io/cluster"], "fintechbankx");
+  assert.equal(user.metadata.labels["fintechbankx.io/workload-namespace"], "corebanking");
+  assert.equal(user.metadata.annotations["fintechbankx.io/service-account"], "accounts-ledger-service");
+  assert.equal(user.spec.authentication.type, "tls");
+  assert.deepEqual(user.spec.authorization, {
+    type: "simple",
+    acls: [{ resource: { type: "topic", name: LEDGER_TOPIC, patternType: "literal" }, operations: ["Write", "Describe"], host: "*" }],
+  });
+  const otherWriters = users.filter(
+    (d) => d.metadata.name !== LEDGER && d.spec.authorization.acls.some((a) => a.resource.name === LEDGER_TOPIC),
+  );
+  assert.deepEqual(otherWriters.map((d) => d.metadata.name), [], "no other KafkaUser has an ACL on the ledger topic");
+
+  const kafkaTopics = YAML.parseAllDocuments(fs.readFileSync(path.join(repoRoot, "deploy/strimzi/generated/kafka-topics.yaml"), "utf8")).map((d) => d.toJS());
+  const kt = kafkaTopics.find((d) => d.metadata.name === LEDGER_TOPIC);
+  assert.ok(kt, `no KafkaTopic ${LEDGER_TOPIC}`);
+  assert.equal(kt.metadata.labels["fintechbankx.io/owner"], LEDGER);
+  assert.equal(kt.metadata.annotations["fintechbankx.io/contract"], `asyncapi/${LEDGER}.yaml`);
+  assert.equal(kt.metadata.annotations["fintechbankx.io/event-types"], LEDGER_EVENT_TYPES.join(","));
+  assert.deepEqual(kt.spec, {
+    topicName: LEDGER_TOPIC,
+    partitions: 3,
+    replicas: 3,
+    config: { "cleanup.policy": "delete", "retention.ms": 604800000, "min.insync.replicas": 2, "max.message.bytes": 1048576 },
+  });
+
+  const tsv = fs.readFileSync(path.join(repoRoot, "topics/generated/topics.tsv"), "utf8").split("\n");
+  assert.deepEqual(tsv.filter((l) => l.startsWith("evt.acc.")), [`${LEDGER_TOPIC}\tevent\t3\t3\t2\tdelete\t604800000\t1048576`]);
 });
 
 test("rejects the retired per-event topic form evt.<ctx>.<aggregate>.<event>.v<major>", () => {

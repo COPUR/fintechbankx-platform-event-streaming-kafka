@@ -14,6 +14,7 @@ fintechbankx-payments-request-to-pay-service,payments,Lending and Money Movement
 fintechbankx-customer-profile-kyc-service,customer,Lending and Money Movement Tribe,svc-cus-profile-kyc,app.cus.profile-kyc,db_cus_profile_kyc_prod,evt.cus.customer,Customer and KYC Squad,4
 fintechbankx-risk-decisioning-service,risk,Lending and Money Movement Tribe,svc-rsk-decisioning,app.rsk.decisioning,db_rsk_decisioning_prod,evt.rsk.risk,Risk and Compliance Decisioning Squad,4
 fintechbankx-compliance-evidence-service,compliance,Lending and Money Movement Tribe,svc-cmp-evidence,app.cmp.evidence,db_cmp_evidence_prod,evt.cmp.compliance,Risk and Compliance Decisioning Squad,4
+neo-fintechbankx-corebanking-accounts-ledger-service,core_banking,Core Banking Tribe,svc-acc-accounts-ledger,app.acc.accounts-ledger,db_acc_accounts_ledger_prod,evt.acc.account,Core Banking Accounts Squad,4
 fintechbankx-platform-identity-keycloak-ldap,platform,Platform and Reliability Tribe,svc-idn-keycloak-ldap,app.idn.keycloak-ldap,db_idn_keycloak_ldap_prod,evt.idn.identity,Identity Platform Squad,0
 fintechbankx-platform-service-mesh-security,platform,Platform and Reliability Tribe,svc-msh-security,app.msh.security,N/A,evt.msh.policy,Mesh Security Squad,0
 fintechbankx-platform-event-streaming,platform,Platform and Reliability Tribe,svc-evt-streaming,app.evt.streaming,db_evt_streaming_prod,evt.evt.platform,Event Platform Squad,0

@@ -2,6 +2,34 @@
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
+  name: svc-acc-accounts-ledger
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: fintechbankx
+    app.kubernetes.io/part-of: fintechbankx-event-streaming
+    app.kubernetes.io/managed-by: topic-catalog
+    fintechbankx.io/service-id: svc-acc-accounts-ledger
+    fintechbankx.io/workload-namespace: corebanking
+  annotations:
+    fintechbankx.io/service-account: accounts-ledger-service
+spec:
+  authentication:
+    type: tls
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: evt.acc.account.v1
+          patternType: literal
+        operations:
+          - Write
+          - Describe
+        host: "*"
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
   name: svc-cmp-evidence
   namespace: kafka
   labels:

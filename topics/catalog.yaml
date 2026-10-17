@@ -62,6 +62,7 @@ defaults:
     rsk: Risk
     cmp: Compliance
     of: OpenFinance
+    acc: CoreBanking            # accounts ledger (ADR-030, Proposed); Governance confirms the CoreBanking prefix
   partitions: 3
   replicationFactor: 3
   minInsyncReplicas: 2
@@ -130,6 +131,10 @@ services:
     eventNamespace: evt.cmp.compliance
     k8sNamespace: compliance
     serviceAccount: compliance-evidence-service
+  svc-acc-accounts-ledger:
+    eventNamespace: evt.acc.account
+    k8sNamespace: corebanking      # new namespace; IRSA subject defaults in the ledger's deploy/terraform/variables.tf
+    serviceAccount: accounts-ledger-service   # chart serviceAccount.name; the Flyway Job's hook account talks only to Aurora, no Kafka access
 
 namespaces:
   - namespace: evt.ln.loan
@@ -375,6 +380,40 @@ namespaces:
         partitions: 6
         eventTypes:
           - OpenFinance.PayeeVerification.VerificationCompleted.v1
+
+  # Core banking: the accounts ledger (ctx acc, manifest context core_banking,
+  # ADR-030 Proposed). Values from the provider contract
+  # api/asyncapi/svc-acc-accounts-ledger.yaml in
+  # neo-fintechbankx-corebanking-accounts-ledger-service (draft PR #1, head
+  # 2db7a04): one channel evt.acc.account.v1, keyed by the account id,
+  # partitions 3, replicas 3, delete, 7 days, 1 MiB (the catalog defaults, so
+  # no overrides). The asyncapi-catalog copy is a pending Governance PR.
+  - namespace: evt.acc.account
+    owner: svc-acc-accounts-ledger
+    aggregate: Account
+    contract: asyncapi/svc-acc-accounts-ledger.yaml
+    implementation: outbox-relay
+    implementationEvidence: >-
+      neo-fintechbankx-corebanking-accounts-ledger-service, accounts-infrastructure
+      AccountEventEnvelopeFactory + OutboxRelay (OutboxRelay.TOPIC =
+      evt.acc.account.v1; draft PR #1, not merged). The chart default is
+      OUTBOX_RELAY_ENABLED=false; turn it on only after this topic and the
+      producer ACL or IAM policy are applied.
+    # No consumer declared (provider README consumed_events: [] and no
+    # x-consumers in the contract); lending and payments may consume later,
+    # each with a catalog consumer entry, evidence and its own DLQ. The ledger
+    # consumes nothing, so evt.acc.account has no DLQ (consumer-owned rule).
+    consumersStatus: unknown
+    consumers: []
+    topics:
+      - major: 1
+        eventTypes:
+          - CoreBanking.Account.Opened.v1
+          - CoreBanking.Account.Frozen.v1
+          - CoreBanking.Account.Unfrozen.v1
+          - CoreBanking.Account.Closed.v1
+          - CoreBanking.Account.Debited.v1
+          - CoreBanking.Account.Credited.v1
 
 # Namespaces in the bootstrap manifest with no catalog topics, and producers
 # that write to non-standard topics. Not provisioned; listed so the gap is visible.
