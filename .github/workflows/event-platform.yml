@@ -53,10 +53,25 @@ jobs:
       - name: Install kubeconform
         run: |
           set -euo pipefail
-          tmpdir="$(mktemp -d)"
-          curl -sSfL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
-            | tar -xz -C "$tmpdir"
-          sudo install "$tmpdir/kubeconform" /usr/local/bin/kubeconform
+          # Runner architecture -> release asset name, with the sha256 of that asset from the
+          # CHECKSUMS file of the kubeconform v0.6.7 release. Only that version is pinned: a
+          # version bump must update these sums too, and any other version fails the step.
+          if [ "$KUBECONFORM_VERSION" != "v0.6.7" ]; then
+            echo "::error::no pinned sha256 for kubeconform ${KUBECONFORM_VERSION}; only v0.6.7 is pinned"
+            exit 1
+          fi
+          case "$(uname -m)" in
+            x86_64) arch=amd64; sha256=95f14e87aa28c09d5941f11bd024c1d02fdc0303ccaa23f61cef67bc92619d73 ;;
+            aarch64) arch=arm64; sha256=dc82f79bb03c5479b1ae5fd4af221e4b5a3111f62bf01a2795d9c5c20fa96644 ;;
+            *) echo "::error::no pinned kubeconform build for runner architecture $(uname -m)"; exit 1 ;;
+          esac
+          dl="$RUNNER_TEMP/kubeconform-dl"
+          mkdir -p "$dl"
+          curl -sSfL -o "$dl/kubeconform.tar.gz" \
+            "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-${arch}.tar.gz"
+          echo "${sha256}  $dl/kubeconform.tar.gz" | sha256sum -c -
+          tar -xzf "$dl/kubeconform.tar.gz" -C "$dl" kubeconform
+          sudo install "$dl/kubeconform" /usr/local/bin/kubeconform
 
       - name: Render and validate Strimzi manifests (with and without Cruise Control)
         run: |
