@@ -1,5 +1,9 @@
 # 🐳 Enhanced Enterprise Banking System - Docker Architecture
 
+> **Historical reference (copied from the monolith on 2026-03-15).** It describes the monolith's Docker setup
+> (ZooKeeper, `:latest` images, single-replica Kafka) and is not how this repository runs Kafka. Current deployment:
+> `deploy/strimzi` (in-cluster), `deploy/msk` (AWS), `deploy/local` (laptop, KRaft); topics from `topics/catalog.yaml`.
+
 ## 📖 Overview
 
 This document provides comprehensive documentation for the Docker-based deployment architecture of the Enhanced Enterprise Banking System. Our containerization strategy supports secure microservices deployment with zero-trust networking, OAuth 2.1 authentication, and comprehensive observability.
@@ -133,7 +137,7 @@ services:
     environment:
       POSTGRES_DB: banking_system
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -204,7 +208,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
     volumes:
       - grafana_data:/var/lib/grafana
 
@@ -225,7 +229,7 @@ services:
     environment:
       POSTGRES_DB: banking_system
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
 
@@ -276,7 +280,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: banking_admin_2024
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
       GF_INSTALL_PLUGINS: grafana-piechart-panel
     volumes:
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro

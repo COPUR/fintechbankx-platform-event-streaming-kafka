@@ -1,0 +1,12 @@
+# Namespace for the in-cluster (non-AWS / local) Kafka cluster. AWS uses
+# Amazon MSK instead (deploy/msk). Labels follow the platform contract.
+# The Strimzi pods opt out of the Istio sidecar (see kafka.yaml): Kafka
+# terminates mutual TLS itself on the tls listener.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kafka
+  labels:
+    istio-injection: enabled
+    fintechbankx.io/context: kafka
+    app.kubernetes.io/part-of: fintechbankx-event-streaming
