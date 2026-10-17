@@ -771,3 +771,19 @@ test("create-topics.sh rejects a malformed topic list", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("the Strimzi TLS listener admits every catalog service's namespace", () => {
+  // Strimzi renders a NetworkPolicy from networkPolicyPeers: a producer or consumer whose
+  // namespace is missing there cannot reach port 9093 although its KafkaUser exists.
+  const kafka = YAML.parseAllDocuments(fs.readFileSync(path.join(repoRoot, "deploy", "strimzi", "kafka.yaml"), "utf8"))
+    .map((d) => d.toJSON())
+    .find((d) => d?.kind === "Kafka");
+  const tls = kafka.spec.kafka.listeners.find((l) => l.name === "tls");
+  const admitted = tls.networkPolicyPeers.flatMap((p) =>
+    (p.namespaceSelector?.matchExpressions ?? [])
+      .filter((e) => e.key === "fintechbankx.io/context" && e.operator === "In")
+      .flatMap((e) => e.values));
+  const catalog = loadCatalog(path.join(repoRoot, "topics", "catalog.yaml"));
+  const namespaces = [...new Set(Object.values(catalog.services).map((s) => s.k8sNamespace))];
+  assert.deepEqual(namespaces.filter((ns) => !admitted.includes(ns)), [], "not admitted by the tls listener");
+});

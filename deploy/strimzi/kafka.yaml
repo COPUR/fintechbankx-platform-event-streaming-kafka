@@ -49,6 +49,7 @@ spec:
                     - risk
                     - compliance
                     - open-finance
+                    - corebanking
     authorization:
       type: simple
     config:

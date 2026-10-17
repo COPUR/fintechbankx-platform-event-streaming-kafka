@@ -41,7 +41,8 @@ Install order on a cluster (by the owning squad, not by CI): Strimzi cluster ope
   `ClusterSecretStore` of the Kubernetes provider (owned by the platform team), locally with `kubectl`. See
   [the client guide](../../docs/guides/SERVICE_CLIENT_CONFIGURATION.md).
 - The listener's NetworkPolicy admits only namespaces labelled `fintechbankx.io/context` in `lending`, `payments`,
-  `customer`, `risk`, `compliance`, `open-finance`.
+  `customer`, `risk`, `compliance`, `open-finance`, `corebanking` (a catalog test keeps the list in step with the
+  services' namespaces).
 
 ## Istio
 
