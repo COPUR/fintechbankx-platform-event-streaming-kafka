@@ -313,9 +313,10 @@ namespaces:
           - Compliance.ComplianceScreening.Screened.v1
 
   # Open finance (confirmed by the open-finance service thread, 2026-10-08).
-  # EventTypes, partitions and retention confirmed by the contracts in
-  # asyncapi-catalog PR #12 (branch claude/openfinance-deployable-ra36dq),
-  # which also declare the consent consumers via x-consumers.
+  # EventTypes and partitions confirmed by the contracts in asyncapi-catalog
+  # PR #12 (branch claude/openfinance-deployable-ra36dq), which also declare
+  # the consent consumers via x-consumers. The retention of evt.of.consent.v1
+  # is ahead of that contract (see the comment on its retention below).
   - namespace: evt.of.consent
     owner: svc-of-consent-authorization
     aggregate: Consent
@@ -328,10 +329,32 @@ namespaces:
       Not yet in code on the scanned branches.
     # Retention 366 days, delete: consent projections in the consumers rebuild
     # by replaying from earliest, so the topic must hold every consent still
-    # alive. A consent is valid for up to 365 days (owner's decision,
-    # 2026-10-18; it was 90 days). The extra day keeps a consent's events
-    # until after its Expired event, whatever the clock skew between the
-    # consent service and the brokers. 6 partitions were confirmed for the
+    # alive. A consent is to be valid for up to 365 days (it was 90): the
+    # owner chose "Cap at 365 days" on the 2026-10-08 card
+    # cmsg_01TVU6MCNctBZbo8MPkX9s1oThBP41pWZebSdRBRoS5hr7 and confirmed it in
+    # writing on 2026-10-18 (cmsg_01TVU6MCNctBZbo8MPkX9s1oBWEUXdKZ1EMXdd3sGsdxRN);
+    # ADR-035 in the governance adr-runbooks repository (Proposed). The extra
+    # day keeps a consent's events until after its Expired event, whatever the
+    # clock skew between the consent service and the brokers.
+    # Ahead of the contract and the service: the consent contract
+    # (asyncapi/svc-of-consent-authorization.yaml) still declares retention.ms
+    # 7776000000 (90 days) and consent-auth still caps a consent at 90 days, so
+    # the AsyncAPI cross-check reports this one mismatch until open finance's
+    # provider PR raises both. The retention deploys first, then the cap
+    # (ADR-035, order of change); nothing in this repository enforces that.
+    # Personal data: the events carry customerId, participantId, accountIds,
+    # scopes, purpose and the consent's dates (internal identifiers, no names,
+    # contact details or balances), now for up to 366 days instead of 90. That
+    # is the consent's own lifetime plus one day, the least a replay needs;
+    # nothing older is kept. Erasure: a delete-only topic cannot remove one
+    # customer's records (segments are deleted by age, and DeleteRecords cuts
+    # every key below an offset), so an erasure is carried out in consent-auth
+    # and in each consumer's projection, and the topic's copies age out at
+    # most 366 days after they were written. A consumer that replays inside
+    # that window rebuilds an erased consent unless the consent contract gains
+    # an event telling it to drop one (open finance's decision). No DPO record
+    # exists for the longer retention; the owner's decision above is the
+    # record. 6 partitions were confirmed for the
     # per-event topics and carry over to evt.of.consent.v1; once a consumer
     # exists the partition count is fixed (changing it is a topic major,
     # ADR-019 section 3). compact+delete stays the alternative if consents can

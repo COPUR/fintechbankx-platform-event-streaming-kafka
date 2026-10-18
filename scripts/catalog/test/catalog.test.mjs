@@ -174,6 +174,32 @@ test("the committed catalog keeps every event type on its aggregate topic", () =
   assert.equal(consent.retentionMs, 31622400000); // 366 days: consents live up to 365 days
 });
 
+// The 366-day consent retention is ahead of the provider contract (90 days) and of the service (90-day cap), and it
+// keeps personal identifiers for a year: the catalog and the guide say why that is acceptable, who decided it, and how
+// erasure works on a delete-only topic (ADR-035, Proposed).
+test("the consent retention states its basis, its owner record and erasure", () => {
+  const raw = fs.readFileSync(path.join(repoRoot, "topics/catalog.yaml"), "utf8");
+  const start = raw.indexOf("  # Open finance (confirmed by the open-finance service thread");
+  const block = raw.slice(start, raw.indexOf("consumersStatus:", raw.indexOf("- namespace: evt.of.consent", start)));
+  assert.ok(!/EventTypes, partitions and retention confirmed/.test(block), "retention is no longer confirmed by the contract");
+  const guideText = fs.readFileSync(path.join(repoRoot, "docs/guides/SERVICE_CLIENT_CONFIGURATION.md"), "utf8");
+  const guide = guideText.slice(guideText.indexOf("Consent example:"), guideText.indexOf("The partition count of an aggregate topic"));
+  for (const [name, text] of [["catalog", block], ["guide", guide]]) {
+    for (const s of [
+      "ADR-035",
+      "cmsg_01TVU6MCNctBZbo8MPkX9s1oThBP41pWZebSdRBRoS5hr7",
+      "cmsg_01TVU6MCNctBZbo8MPkX9s1oBWEUXdKZ1EMXdd3sGsdxRN",
+      "customerId",
+      "participantId",
+      "accountIds",
+      "7776000000",
+      "erasure",
+    ]) {
+      assert.ok(text.includes(s), `${name} names ${s}`);
+    }
+  }
+});
+
 // Accounts ledger (neo-fintechbankx-corebanking-accounts-ledger-service PR #1 at 2db7a04): provider contract
 // api/asyncapi/svc-acc-accounts-ledger.yaml, chart deploy/helm/accounts-ledger-service.
 const LEDGER = "svc-acc-accounts-ledger";
