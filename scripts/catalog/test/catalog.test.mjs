@@ -177,7 +177,7 @@ test("the committed catalog keeps every event type on its aggregate topic", () =
 // The 366-day consent retention is ahead of the provider contract (90 days) and of the service (90-day cap), and it
 // keeps personal identifiers for a year: the catalog and the guide say why that is acceptable, who decided it, and how
 // erasure works on a delete-only topic (ADR-035, Proposed).
-test("the consent retention states its basis, its owner record and erasure", () => {
+test("the consent retention states its basis, the provider state, the pending ADR and erasure", () => {
   const raw = fs.readFileSync(path.join(repoRoot, "topics/catalog.yaml"), "utf8");
   const start = raw.indexOf("  # Open finance (confirmed by the open-finance service thread");
   const block = raw.slice(start, raw.indexOf("consumersStatus:", raw.indexOf("- namespace: evt.of.consent", start)));
@@ -187,16 +187,19 @@ test("the consent retention states its basis, its owner record and erasure", () 
   for (const [name, text] of [["catalog", block], ["guide", guide]]) {
     for (const s of [
       "ADR-035",
-      "cmsg_01TVU6MCNctBZbo8MPkX9s1oThBP41pWZebSdRBRoS5hr7",
-      "cmsg_01TVU6MCNctBZbo8MPkX9s1oBWEUXdKZ1EMXdd3sGsdxRN",
+      "pending",
+      "DPO",
+      "PR #13",
+      "31622400000",
       "customerId",
       "participantId",
       "accountIds",
-      "7776000000",
       "erasure",
     ]) {
       assert.ok(text.includes(s), `${name} names ${s}`);
     }
+    // Chat references are not repository records, and the 90-day contract figure is on no consent-auth ref.
+    assert.doesNotMatch(text, /cmsg_|7776000000/, `${name} cites a chat message or the old 90-day contract value`);
   }
 });
 

@@ -184,11 +184,11 @@ key (say *revoked*), dropping the history every consumer that replays needs.
 A consumer that needs current state keeps its own projection and rebuilds it by replaying from the earliest
 offset. Consent example: `evt.of.consent.v1` keeps 366 days (`retention.ms=31622400000`), one day more than the
 365-day consent lifetime, so a replay from earliest sees every consent still alive; records are keyed by `consentId`.
-The 365 days are the owner's decision (card cmsg_01TVU6MCNctBZbo8MPkX9s1oThBP41pWZebSdRBRoS5hr7 of 2026-10-08,
-confirmed in writing on 2026-10-18, cmsg_01TVU6MCNctBZbo8MPkX9s1oBWEUXdKZ1EMXdd3sGsdxRN; ADR-035 in the governance
-adr-runbooks repository, Proposed). The retention comes first: consent-auth still caps a consent at 90 days and its
-contract still declares `retention.ms=7776000000`, until open finance's provider PR raises both after this retention
-is deployed (nothing here enforces that order). The events carry `customerId`, `participantId` and `accountIds`
+The 365 days are the owner's choice, recorded in ADR-035 in the governance adr-runbooks repository (pending
+acceptance by the owner and the DPO). On consent-auth's default branch nothing caps a consent's lifetime yet, so a
+consent can outlive the retention and a replay then drops it; consent PR #13 adds the 365-day cap and the contract
+with `retention.ms=31622400000`. The cap must merge with or before this retention reaches consumers (nothing here
+enforces that order). The events carry `customerId`, `participantId` and `accountIds`
 (internal identifiers, no names, contact details or balances) and now stay up to 366 days, the consent's lifetime plus
 one day. A delete-only topic cannot remove one customer's records before they age out, so an erasure is carried out in
 consent-auth and in each consumer's projection; a consumer that replays inside those 366 days rebuilds an erased
