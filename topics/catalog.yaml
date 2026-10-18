@@ -329,7 +329,7 @@ namespaces:
       Not yet in code on the scanned branches.
     # Retention 366 days, delete: consent projections in the consumers rebuild
     # by replaying from earliest, so the topic must hold every consent still
-    # alive. A consent is to be valid for up to 365 days: the owner chose
+    # alive once consents are capped at 365 days, as planned: the owner chose
     # "Cap at 365 days" (ADR-035 in the governance adr-runbooks repository,
     # pending acceptance by the owner and the DPO). The extra day keeps a
     # consent's events until after its Expired event, whatever the clock skew

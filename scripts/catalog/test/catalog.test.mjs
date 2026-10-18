@@ -171,7 +171,7 @@ test("the committed catalog keeps every event type on its aggregate topic", () =
   ]);
   const consent = resolveTopics(catalog).find((t) => t.name === "evt.of.consent.v1");
   assert.equal(consent.partitions, 6);
-  assert.equal(consent.retentionMs, 31622400000); // 366 days: consents live up to 365 days
+  assert.equal(consent.retentionMs, 31622400000); // 366 days: one more than the planned 365-day consent cap (consent PR #13, not yet merged)
 });
 
 // The 366-day consent retention is ahead of the provider contract (90 days) and of the service (90-day cap), and it

@@ -183,7 +183,7 @@ an event is a fact, not a state snapshot; and compacting an aggregate topic keep
 key (say *revoked*), dropping the history every consumer that replays needs.
 A consumer that needs current state keeps its own projection and rebuilds it by replaying from the earliest
 offset. Consent example: `evt.of.consent.v1` keeps 366 days (`retention.ms=31622400000`), one day more than the
-365-day consent lifetime, so a replay from earliest sees every consent still alive; records are keyed by `consentId`.
+planned 365-day consent cap, so once the cap is in force a replay from earliest sees every consent still alive; records are keyed by `consentId`.
 The 365 days are the owner's choice, recorded in ADR-035 in the governance adr-runbooks repository (pending
 acceptance by the owner and the DPO). On consent-auth's default branch nothing caps a consent's lifetime yet, so a
 consent can outlive the retention and a replay then drops it; consent PR #13 adds the 365-day cap and the contract
