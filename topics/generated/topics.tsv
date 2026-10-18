@@ -10,7 +10,7 @@ evt.pay.mandate.v1	event	3	3	2	delete	604800000	1048576
 evt.cus.customer.v1	event	3	3	2	delete	604800000	1048576
 evt.rsk.risk.v1	event	3	3	2	delete	604800000	1048576
 evt.cmp.compliance.v1	event	3	3	2	delete	604800000	1048576
-evt.of.consent.v1	event	6	3	2	delete	7776000000	1048576
+evt.of.consent.v1	event	6	3	2	delete	31622400000	1048576
 evt.of.payee.v1	event	6	3	2	delete	604800000	1048576
 evt.acc.account.v1	event	3	3	2	delete	604800000	1048576
 evt.of.account.dlq.v1	dlq	3	3	2	delete	1209600000	1048576

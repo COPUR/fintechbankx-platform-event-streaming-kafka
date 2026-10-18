@@ -182,8 +182,8 @@ Event topics are never compacted (`cleanup.policy=delete`; the catalog rejects a
 an event is a fact, not a state snapshot; and compacting an aggregate topic keeps only the latest event per
 key (say *revoked*), dropping the history every consumer that replays needs.
 A consumer that needs current state keeps its own projection and rebuilds it by replaying from the earliest
-offset. Consent example: `evt.of.consent.v1` keeps 90 days (`retention.ms=7776000000`), matching the 90-day
-consent lifetime, so a replay from earliest sees every consent still alive; records are keyed by `consentId`.
+offset. Consent example: `evt.of.consent.v1` keeps 366 days (`retention.ms=31622400000`), one day more than the
+365-day consent lifetime, so a replay from earliest sees every consent still alive; records are keyed by `consentId`.
 If a consent could outlive the retention, raise the retention or publish a separate state topic owned by
 consent-auth (an ADR), rather than compacting event topics.
 

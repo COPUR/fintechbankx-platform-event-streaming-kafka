@@ -171,7 +171,7 @@ test("the committed catalog keeps every event type on its aggregate topic", () =
   ]);
   const consent = resolveTopics(catalog).find((t) => t.name === "evt.of.consent.v1");
   assert.equal(consent.partitions, 6);
-  assert.equal(consent.retentionMs, 7776000000);
+  assert.equal(consent.retentionMs, 31622400000); // 366 days: consents live up to 365 days
 });
 
 // Accounts ledger (neo-fintechbankx-corebanking-accounts-ledger-service PR #1 at 2db7a04): provider contract

@@ -326,13 +326,16 @@ namespaces:
       PR #12). Outbox relay in progress in the open-finance service thread; replaces
       the monolith Debezium outbox topic openfinance.provider.consent.v1.
       Not yet in code on the scanned branches.
-    # Retention 90 days, delete: consent projections in the consumers rebuild
+    # Retention 366 days, delete: consent projections in the consumers rebuild
     # by replaying from earliest, so the topic must hold every consent still
-    # alive. 6 partitions were confirmed for the per-event topics and carry
-    # over to evt.of.consent.v1; once a consumer exists the partition count is
-    # fixed (changing it is a topic major, ADR-019 section 3). The thread
-    # asked for 30 days minimum, 90 preferred, or compact+delete. compact+delete is the alternative if consents can live
-    # longer than 90 days; it needs a per-topic exception to the
+    # alive. A consent is valid for up to 365 days (owner's decision,
+    # 2026-10-18; it was 90 days). The extra day keeps a consent's events
+    # until after its Expired event, whatever the clock skew between the
+    # consent service and the brokers. 6 partitions were confirmed for the
+    # per-event topics and carry over to evt.of.consent.v1; once a consumer
+    # exists the partition count is fixed (changing it is a topic major,
+    # ADR-019 section 3). compact+delete stays the alternative if consents can
+    # live longer than the retention; it needs a per-topic exception to the
     # delete-only rule and a tombstone policy, so it is not used now.
     consumersStatus: known
     consumers:
@@ -357,7 +360,7 @@ namespaces:
     topics:
       - major: 1
         partitions: 6
-        retentionMs: 7776000000
+        retentionMs: 31622400000          # 366 days
         eventTypes:
           - OpenFinance.Consent.Created.v1
           - OpenFinance.Consent.Authorized.v1
